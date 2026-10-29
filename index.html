@@ -311,6 +311,18 @@
   .chip { white-space: nowrap; }
   details.grupo > summary .chip { flex: none; }
   .chip.off { background: var(--linea); color: var(--tinta); }
+  .elegir-btn { width: 100%; justify-content: flex-start; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .picker { margin-top: 12px; border: 1px solid var(--linea); border-radius: 12px; background: var(--campo); overflow: hidden; }
+  .picker > input { border: none; border-bottom: 1px solid var(--linea); border-radius: 0; }
+  #v-lista-prod { max-height: 55vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  button.opc { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 72px; padding: 8px 12px; text-align: left;
+               background: transparent; color: var(--tinta); border: none; border-bottom: 1px solid var(--linea); border-radius: 0; }
+  button.opc:last-child { border-bottom: none; }
+  button.opc:disabled { opacity: .45; }
+  button.opc .miniatura { width: 56px; height: 56px; }
+  .opc-t { display: grid; gap: 2px; min-width: 0; }
+  .opc-t b { font-weight: 600; white-space: normal; }
+  .opc-t small { color: var(--tenue); font-size: 14px; }
   .nota-campo { display: block; margin-top: 4px; color: var(--tenue); font-size: 13px; }
   .chip.urg { background: var(--alerta-suave); color: var(--alerta); }
 
@@ -488,9 +500,14 @@
                 <input id="v-cod" autocomplete="off" autocapitalize="characters" autocorrect="off" enterkeyhint="search" placeholder="Escribe el código">
               </div>
               <div>
-                <label for="v-sel">O elige del inventario</label>
-                <select id="v-sel"><option value="">Elige un producto…</option></select>
+                <label for="v-abrir">O elige del inventario</label>
+                <button type="button" class="sec elegir-btn" id="v-abrir" aria-expanded="false" aria-controls="v-panel">Elegir producto…</button>
+                <select id="v-sel" hidden aria-hidden="true" tabindex="-1"><option value="">Elige un producto…</option></select>
               </div>
+            </div>
+            <div class="picker" id="v-panel" hidden>
+              <input id="v-buscar" type="search" autocomplete="off" autocorrect="off" placeholder="Buscar por nombre o código" aria-label="Buscar producto">
+              <div id="v-lista-prod"></div>
             </div>
 
             <div class="ficha" id="v-ficha" hidden>
@@ -1545,8 +1562,32 @@
   const totalCarrito = () => carrito.reduce((s, l) => s + l.qty * prod(l.id).precio, 0);
 
   // --- Elegir producto: por código o desde la lista
+  function renderPicker() {
+    const t = sinAc($("v-buscar").value).trim();
+    const lista = productos.filter((p) => !t || sinAc(p.sku + " " + p.nombre).includes(t));
+    $("v-lista-prod").innerHTML = lista.length ? lista.map((p) => {
+      const fu = urlFoto(p);
+      return `<button type="button" class="opc" data-pick="${p.id}"${p.stock < 1 ? " disabled" : ""}>` +
+        (fu ? `<img class="miniatura" src="${esc(fu)}" alt="">` : `<span class="miniatura" aria-hidden="true"></span>`) +
+        `<span class="opc-t"><b>${esc(p.nombre)}</b><small>${esc(p.sku)} · ${usd(p.precio)} · ${p.stock < 1 ? "Sin stock" : p.stock + " disp."}</small></span></button>`;
+    }).join("") : `<div class="vacio">No hay productos con ese nombre o código.</div>`;
+  }
+  function abrirPicker(abrir) {
+    $("v-panel").hidden = !abrir;
+    $("v-abrir").setAttribute("aria-expanded", String(abrir));
+    if (abrir) { renderPicker(); $("v-panel").scrollIntoView({ block: "nearest" }); }
+  }
+  $("v-abrir").addEventListener("click", () => abrirPicker($("v-panel").hidden));
+  $("v-buscar").addEventListener("input", renderPicker);
+  $("v-lista-prod").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-pick]");
+    if (!b) return;
+    elegir(Number(b.dataset.pick)); abrirPicker(false);
+  });
+
   function llenarSelect() {
     const sel = $("v-sel");
+    if (!$("v-panel").hidden) renderPicker();
     sel.innerHTML = `<option value="">Elige un producto…</option>` + productos.map((p) => {
       const nom = p.nombre && p.nombre !== p.sku ? " — " + p.nombre : "";
       const disp = p.stock < 1 ? " (sin stock)" : ` (${p.stock} disp.)`;
@@ -1575,6 +1616,7 @@
 
   function renderFicha() {
     const p = seleccion ? prod(seleccion) : null;
+    $("v-abrir").textContent = p ? p.nombre : "Elegir producto…";
     $("v-ficha").hidden = !p;
     if (!p) return;
     $("f-nombre").textContent = p.nombre;
