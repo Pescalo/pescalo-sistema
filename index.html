@@ -323,6 +323,11 @@
   .opc-t { display: grid; gap: 2px; min-width: 0; }
   .opc-t b { font-weight: 600; white-space: normal; }
   .opc-t small { color: var(--tenue); font-size: 14px; }
+  .x-in { width: 78px; min-height: 40px; padding: 6px 8px; text-align: right; }
+  #x-tabla td, #x-tabla th { white-space: nowrap; }
+  #x-tabla td.nom { white-space: normal; min-width: 160px; }
+  #x-tabla td small { display: block; color: var(--tenue); font-size: 13px; }
+  #x-lista-prod { max-height: 50vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .nota-campo { display: block; margin-top: 4px; color: var(--tenue); font-size: 13px; }
   .chip.urg { background: var(--alerta-suave); color: var(--alerta); }
 
@@ -412,6 +417,7 @@
       <button type="button" data-vista="productos">Productos</button>
       <button type="button" data-vista="reposicion">Reposición</button>
       <button type="button" data-vista="caja">Caja</button>
+      <button type="button" data-vista="costos">Costos de importación</button>
       <button type="button" data-vista="respaldo">Respaldo</button>
     </nav>
     <div class="pie"><button type="button" class="sec" id="salir">Cerrar sesión</button></div>
@@ -421,6 +427,8 @@
     <div class="resumen" id="resumen" hidden>
       <div><b id="r-productos">–</b><span>productos activos</span></div>
       <div><b id="r-valor">–</b><span>valor del inventario a costo ($)</span></div>
+      <div><b id="r-venta">–</b><span>valor al venderlo todo ($)</span></div>
+      <div><b id="r-gan" class="pos">–</b><span id="r-gan-t">ganancia estimada ($)</span></div>
       <div class="alerta"><b id="r-reponer">–</b><span>por reponer</span></div>
     </div>
 
@@ -720,6 +728,57 @@
       </details>
     </section>
 
+    <!-- ============ COSTOS DE IMPORTACIÓN ============ -->
+    <section id="vista-costos" hidden>
+      <div class="caja">
+        <h2>1. Gastos de traer la mercancía</h2>
+        <form class="grid" id="f-costos" onsubmit="return false">
+          <p class="aviso" style="grid-column:1/-1;margin:0">Escribe en dólares lo que pagaste además de la mercancía. Se reparte entre los productos del lote para saber cuánto te cuesta realmente cada uno puesto en tu tienda.</p>
+          <div><label for="x-flete">Flete ($)</label><input id="x-flete" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
+          <div><label for="x-seguro">Seguro ($)</label><input id="x-seguro" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
+          <div><label for="x-imp">Impuestos / aduana ($)</label><input id="x-imp" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
+          <div><label for="x-otros">Otros gastos ($)</label><input id="x-otros" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
+          <div style="grid-column:1/-1">
+            <label for="x-metodo">Cómo repartirlos</label>
+            <select id="x-metodo">
+              <option value="valor">Según el valor de cada producto (recomendado)</option>
+              <option value="unidades">Igual por cada unidad</option>
+            </select>
+          </div>
+        </form>
+      </div>
+
+      <div class="caja">
+        <h2>2. Productos del lote</h2>
+        <div class="herr">
+          <button type="button" class="sec" id="x-abrir" aria-expanded="false" aria-controls="x-panel">Agregar un producto</button>
+          <button type="button" class="sec" id="x-todo">Agregar todo el inventario con stock</button>
+          <button type="button" class="sec" id="x-vaciar">Vaciar lote</button>
+        </div>
+        <div class="picker" id="x-panel" hidden style="margin:12px 18px">
+          <input id="x-buscar" type="search" autocomplete="off" autocorrect="off" placeholder="Buscar por nombre o código" aria-label="Buscar producto">
+          <div id="x-lista-prod"></div>
+        </div>
+        <div class="aviso" id="x-msg" role="status" style="padding:0 18px 10px"></div>
+        <div class="scroll"><div id="x-tabla"></div></div>
+      </div>
+
+      <div class="caja" id="x-res" hidden>
+        <h2>3. Resultado</h2>
+        <div class="pad">
+          <div class="dato"><span>Mercancía (costo base)</span><b id="x-r-base">–</b></div>
+          <div class="dato"><span>Gastos repartidos</span><b id="x-r-extra">–</b></div>
+          <div class="dato"><span>Recargo sobre la mercancía</span><b id="x-r-pct">–</b></div>
+          <div class="dato"><span>Costo total puesto en tienda</span><b id="x-r-total">–</b></div>
+          <div class="dato"><span>Valor al vender todo el lote</span><b id="x-r-venta">–</b></div>
+          <div class="dato"><span>Ganancia estimada del lote</span><b id="x-r-gan" class="pos">–</b></div>
+          <p class="aviso">Al guardar, el costo de cada producto pasa a ser el "Costo final". Las ventas que ya hiciste conservan el costo que tenían. Después de guardar el lote se vacía, así no repites los gastos por error.</p>
+          <div class="acciones"><button type="button" id="x-aplicar">Guardar estos costos en los productos</button></div>
+          <div class="aviso" id="x-aplicar-msg" role="status" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ============ RESPALDO ============ -->
     <section id="vista-respaldo" hidden>
       <div class="caja">
@@ -921,7 +980,7 @@
   $("salir").addEventListener("click", () => sb.auth.signOut());
 
   // ---------- Menú lateral ----------
-  const TITULOS = { inicio: "Inicio", ventas: "Ventas", dashboard: "Dashboard", productos: "Productos", reposicion: "Reposición", caja: "Caja", respaldo: "Respaldo" };
+  const TITULOS = { inicio: "Inicio", ventas: "Ventas", dashboard: "Dashboard", productos: "Productos", reposicion: "Reposición", caja: "Caja", costos: "Costos de importación", respaldo: "Respaldo" };
   // Estados de Venezuela y su número (el mismo de la tabla estados_ve en Supabase): 1 = Distrito Capital (Caracas)
   const ESTADOS_VE = [
     [1, "Distrito Capital", "Caracas"], [2, "Amazonas", "Puerto Ayacucho"], [3, "Anzoátegui", "Barcelona"],
@@ -1037,7 +1096,12 @@
     productosTodos = data;
     productos = data.filter((p) => p.activo !== false);
     $("r-productos").textContent = productos.length;
-    $("r-valor").textContent = dinero(productos.reduce((s, p) => s + p.stock * p.costo, 0));
+    const vCosto = productos.reduce((s, p) => s + p.stock * p.costo, 0);
+    const vVenta = productos.reduce((s, p) => s + p.stock * p.precio, 0);
+    $("r-valor").textContent = dinero(vCosto);
+    $("r-venta").textContent = dinero(vVenta);
+    $("r-gan").textContent = dinero(vVenta - vCosto);
+    $("r-gan-t").textContent = "ganancia estimada ($)" + (vVenta > 0 ? " · " + Math.round(100 * (vVenta - vCosto) / vVenta) + "% del precio" : "");
     await cargarFotos();
     renderProductos();
     llenarSelect();
@@ -2295,6 +2359,129 @@
     await cargarCaja();
     $("k-msg").style.color = "var(--ok)"; $("k-msg").textContent = "Saldos guardados.";
   });
+
+  // ---------- Costos de importación (costo puesto en tienda) ----------
+  let lote = [];   // [{ id, qty, base }]
+  const xNum = (id) => { const n = numero($(id).value); return n === null || Number.isNaN(n) || n < 0 ? 0 : n; };
+  const xMsg = (t, mal) => { const m = $("x-msg"); m.textContent = t || ""; m.classList.toggle("mal", !!mal); };
+
+  function xRenderPicker() {
+    const t = sinAc($("x-buscar").value).trim();
+    const lista = productos.filter((p) => !t || sinAc(p.sku + " " + p.nombre).includes(t));
+    $("x-lista-prod").innerHTML = lista.length ? lista.map((p) => {
+      const fu = urlFoto(p), ya = lote.some((l) => l.id === p.id);
+      return `<button type="button" class="opc" data-xpick="${p.id}"${ya ? " disabled" : ""}>` +
+        (fu ? `<img class="miniatura" src="${esc(fu)}" alt="">` : `<span class="miniatura" aria-hidden="true"></span>`) +
+        `<span class="opc-t"><b>${esc(p.nombre)}</b><small>${esc(p.sku)} · costo ${usd(p.costo)} · ${p.stock} en stock${ya ? " · ya está en el lote" : ""}</small></span></button>`;
+    }).join("") : `<div class="vacio">No hay productos con ese nombre o código.</div>`;
+  }
+  function xAbrirPicker(abrir) {
+    $("x-panel").hidden = !abrir;
+    $("x-abrir").setAttribute("aria-expanded", String(abrir));
+    if (abrir) xRenderPicker();
+  }
+  $("x-abrir").addEventListener("click", () => xAbrirPicker($("x-panel").hidden));
+  $("x-buscar").addEventListener("input", xRenderPicker);
+  $("x-lista-prod").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-xpick]");
+    if (!b) return;
+    const p = prod(Number(b.dataset.xpick));
+    if (p && !lote.some((l) => l.id === p.id)) lote.push({ id: p.id, qty: Math.max(p.stock, 1), base: Number(p.costo) });
+    xAbrirPicker(false); xRenderLote();
+  });
+  $("x-todo").addEventListener("click", () => {
+    let n = 0;
+    productos.forEach((p) => { if (p.stock > 0 && !lote.some((l) => l.id === p.id)) { lote.push({ id: p.id, qty: p.stock, base: Number(p.costo) }); n++; } });
+    xMsg(n ? `Se agregaron ${n} productos con su stock actual como cantidad.` : "No hay más productos con stock para agregar.");
+    xRenderLote();
+  });
+  $("x-vaciar").addEventListener("click", () => { lote = []; xMsg(""); $("x-aplicar-msg").textContent = ""; xRenderLote(); });
+
+  function xRenderLote() {
+    if (!lote.length) {
+      $("x-tabla").innerHTML = `<div class="vacio">Aún no hay productos en el lote. Agrégalos arriba.</div>`;
+      $("x-res").hidden = true; return;
+    }
+    $("x-res").hidden = false;
+    $("x-tabla").innerHTML = `<table><thead><tr><th>Producto</th><th>Costo final</th><th>Cant.</th><th>Costo base ($)</th><th>Gastos por unidad</th><th>Total</th><th></th></tr></thead><tbody>` +
+      lote.map((l, i) => {
+        const p = prod(l.id);
+        return `<tr><td class="nom">${esc(p ? p.nombre : "Producto " + l.id)}<small>${esc(p ? p.sku : "")}</small></td>
+          <td id="x-f${i}"><b>–</b></td>
+          <td><input class="x-in" data-xl="${i}" data-xc="qty" type="text" inputmode="numeric" autocomplete="off" value="${l.qty}" aria-label="Cantidad"></td>
+          <td><input class="x-in" data-xl="${i}" data-xc="base" type="text" inputmode="decimal" autocomplete="off" value="${aTexto(l.base)}" aria-label="Costo base"></td>
+          <td id="x-e${i}">–</td><td id="x-t${i}">–</td>
+          <td><button type="button" class="sec mini" data-xq="${i}" aria-label="Quitar del lote">Quitar</button></td></tr>`;
+      }).join("") + `</tbody></table>`;
+    xCalcular();
+  }
+  // Calcula el reparto con lo que hay escrito (sin volver a dibujar la tabla, para no perder el cursor)
+  function xCalcular() {
+    const extra = xNum("x-flete") + xNum("x-seguro") + xNum("x-imp") + xNum("x-otros");
+    const porValor = $("x-metodo").value === "valor";
+    const lin = lote.map((l) => ({ ...l, qty: Math.max(0, Math.floor(l.qty) || 0), base: l.base >= 0 ? l.base : 0 }));
+    const baseTotal = lin.reduce((s, l) => s + l.qty * l.base, 0);
+    const unidades = lin.reduce((s, l) => s + l.qty, 0);
+    let totalFinal = 0, venta = 0;
+    lin.forEach((l, i) => {
+      const parte = !l.qty ? 0 : (porValor && baseTotal > 0 ? (l.qty * l.base) / baseTotal : l.qty / (unidades || 1)) * extra;
+      const unit = l.qty ? parte / l.qty : 0;
+      l.final = l.base + unit;
+      totalFinal += l.qty * l.final;
+      const p = prod(l.id); venta += l.qty * (p ? Number(p.precio) : 0);
+      const set = (id, t) => { const el = $(id); if (el) el.innerHTML = t; };
+      set("x-e" + i, usd(unit)); set("x-f" + i, `<b>${usd(l.final)}</b>`); set("x-t" + i, usd(l.qty * l.final));
+    });
+    lote.forEach((l, i) => { lote[i]._final = lin[i].final; lote[i]._q = lin[i].qty; });
+    $("x-r-base").textContent = usd(baseTotal);
+    $("x-r-extra").textContent = usd(extra);
+    $("x-r-pct").textContent = baseTotal > 0 ? dinero(100 * extra / baseTotal) + " %" : "–";
+    $("x-r-total").textContent = usd(totalFinal);
+    $("x-r-venta").textContent = usd(venta);
+    $("x-r-gan").textContent = usd(venta - totalFinal);
+    $("x-r-gan").className = venta - totalFinal >= 0 ? "pos" : "neg";
+  }
+  $("x-tabla").addEventListener("input", (e) => {
+    const inp = e.target.closest("input[data-xl]");
+    if (!inp) return;
+    const l = lote[Number(inp.dataset.xl)], n = numero(inp.value);
+    if (inp.dataset.xc === "qty") l.qty = n === null || Number.isNaN(n) || n < 0 ? 0 : Math.floor(n);
+    else l.base = n === null || Number.isNaN(n) || n < 0 ? 0 : n;
+    xCalcular();
+  });
+  $("x-tabla").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-xq]");
+    if (!b) return;
+    lote.splice(Number(b.dataset.xq), 1); xRenderLote();
+  });
+  ["x-flete", "x-seguro", "x-imp", "x-otros"].forEach((id) => $(id).addEventListener("input", xCalcular));
+  $("x-metodo").addEventListener("change", xCalcular);
+
+  $("x-aplicar").addEventListener("click", async () => {
+    const b = $("x-aplicar");
+    if (!lote.length) return;
+    if (lote.some((l) => !(l._q > 0))) { $("x-aplicar-msg").classList.add("mal"); $("x-aplicar-msg").textContent = "Hay productos con cantidad 0. Ponles cantidad o quítalos del lote."; return; }
+    if (b.dataset.confirma !== "1") { b.dataset.confirma = "1"; b.textContent = "Sí, cambiar el costo de " + lote.length + " productos"; return; }
+    b.dataset.confirma = ""; b.textContent = "Guardar estos costos en los productos"; b.disabled = true;
+    $("x-aplicar-msg").classList.remove("mal"); $("x-aplicar-msg").textContent = "Guardando…";
+    let ok = 0; const fallos = [];
+    for (const l of lote) {
+      const costo = Math.round(l._final * 100) / 100;
+      const { error } = await sb.from("productos").update({ costo }).eq("id", l.id);
+      if (error) fallos.push((prod(l.id) || { sku: l.id }).sku + ": " + error.message); else ok++;
+    }
+    b.disabled = false;
+    if (fallos.length) {
+      $("x-aplicar-msg").classList.add("mal");
+      $("x-aplicar-msg").textContent = `Se actualizaron ${ok} productos, pero fallaron ${fallos.length}: ${fallos.join("; ")}. No repitas los que sí se guardaron.`;
+    } else {
+      $("x-aplicar-msg").textContent = `Listo: se actualizó el costo de ${ok} productos.`;
+      lote = []; ["x-flete", "x-seguro", "x-imp", "x-otros"].forEach((id) => ($(id).value = ""));
+      xRenderLote();
+    }
+    await cargarTodo();
+  });
+  xRenderLote();
 
   // ---------- Respaldo y restauración ----------
   const TABLAS_RESPALDO = [
