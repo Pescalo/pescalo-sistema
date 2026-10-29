@@ -118,6 +118,7 @@
   .acciones { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   #msg, .error { color: var(--alerta); font-size: 15px; }
   .aviso { color: var(--tenue); font-size: 14px; }
+  .aviso.mal { color: var(--alerta); }
 
   /* Ventas */
   .paso { color: var(--tenue); font-size: 14px; margin: 0 0 14px; }
@@ -310,6 +311,7 @@
   .chip { white-space: nowrap; }
   details.grupo > summary .chip { flex: none; }
   .chip.off { background: var(--linea); color: var(--tinta); }
+  .nota-campo { display: block; margin-top: 4px; color: var(--tenue); font-size: 13px; }
   .chip.urg { background: var(--alerta-suave); color: var(--alerta); }
 
   details.grupo { border-bottom: 1px solid var(--linea); }
@@ -398,6 +400,7 @@
       <button type="button" data-vista="productos">Productos</button>
       <button type="button" data-vista="reposicion">Reposición</button>
       <button type="button" data-vista="caja">Caja</button>
+      <button type="button" data-vista="respaldo">Respaldo</button>
     </nav>
     <div class="pie"><button type="button" class="sec" id="salir">Cerrar sesión</button></div>
   </aside>
@@ -462,6 +465,11 @@
           <div class="filtros pad" id="v-filtros"></div>
           <div id="lista-ventas"></div>
         </div>
+        <details class="caja">
+          <summary>Números de estado (el primer número del pedido)</summary>
+          <p class="aviso" style="margin:0;padding:12px 18px 0">El número de pedido se arma así: <b>número del estado</b> + guion + <b>número de venta</b>. Ejemplo: <b>8-15</b> = venta 15, de Carabobo. La venta 1 de Caracas sería <b>1-1</b>.</p>
+          <div id="tabla-estados" class="scroll"></div>
+        </details>
       </div>
 
       <div id="v-pedido" hidden>
@@ -528,7 +536,7 @@
             <div><label for="c-ced">Cédula</label><input id="c-ced" autocomplete="off" autocapitalize="characters" autocorrect="off" placeholder="Ej: V-12345678" required></div>
             <div><label for="c-tel">Teléfono</label><input id="c-tel" type="tel" inputmode="tel" autocomplete="off" placeholder="Ej: 0414-1234567"></div>
             <div><label for="c-ciudad">Ciudad</label><input id="c-ciudad" autocomplete="off"></div>
-            <div><label for="c-region">Estado</label><input id="c-region" autocomplete="off" placeholder="Ej: Carabobo"></div>
+            <div><label for="c-region">Estado (da el número del pedido)</label><select id="c-region" required><option value="">Elige…</option></select></div>
             <div style="grid-column:1/-1"><label for="c-dir">Dirección u oficina de envío</label><input id="c-dir" autocomplete="off" placeholder="Ej: Oficina MRW Chacao"></div>
             <div class="aviso" id="c-cli-aviso" style="grid-column:1/-1;margin-top:-6px" role="status"></div>
             <div>
@@ -558,8 +566,8 @@
                 <option value="ENTREGADO">Entregado</option>
               </select>
             </div>
-            <div><label for="c-desc">Descuento ($)</label><input id="c-desc" type="number" inputmode="decimal" step="0.01" min="0" value="0"></div>
-            <div><label for="c-envc">Envío que pagas tú ($)</label><input id="c-envc" type="number" inputmode="decimal" step="0.01" min="0" value="0"></div>
+            <div><label for="c-desc">Descuento ($)</label><input id="c-desc" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="0"></div>
+            <div><label for="c-envc">Envío que pagas tú ($)</label><input id="c-envc" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="0"></div>
             <div class="aviso" id="c-aviso" style="grid-column:1/-1" role="status"></div>
             <div class="acciones">
               <button type="button" class="sec" id="c-volver">Volver al carrito</button>
@@ -665,7 +673,7 @@
               <option value="USDT">USDT</option>
             </select>
           </div>
-          <div><label for="m-monto">Monto ($ o USDT)</label><input id="m-monto" type="number" inputmode="decimal" step="0.01" min="0.01" required></div>
+          <div><label for="m-monto">Monto ($ o USDT)</label><input id="m-monto" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" required></div>
           <div><label for="m-concepto">Concepto</label><input id="m-concepto" autocomplete="off" placeholder="Ej: Anzuelos"></div>
           <div class="acciones">
             <button type="submit" id="m-guardar">Registrar</button>
@@ -682,8 +690,8 @@
       <details class="caja">
         <summary>Corregir saldos manualmente</summary>
         <form class="grid" id="f-caja">
-          <div><label for="k-efectivo">Efectivo disponible ($)</label><input id="k-efectivo" type="number" inputmode="decimal" step="0.01" min="0" required></div>
-          <div><label for="k-usdt">USDT disponibles</label><input id="k-usdt" type="number" inputmode="decimal" step="0.01" min="0" required></div>
+          <div><label for="k-efectivo">Efectivo disponible ($)</label><input id="k-efectivo" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" required></div>
+          <div><label for="k-usdt">USDT disponibles</label><input id="k-usdt" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" required></div>
           <div class="acciones">
             <button type="submit" id="k-guardar">Guardar saldos</button>
             <span id="k-msg" role="status"></span>
@@ -691,6 +699,32 @@
           <p class="aviso" style="grid-column:1/-1;margin:0">Sirve para empezar con el dinero que ya tienes. Cada corrección queda anotada en los movimientos como "Ajuste manual".</p>
         </form>
       </details>
+    </section>
+
+    <!-- ============ RESPALDO ============ -->
+    <section id="vista-respaldo" hidden>
+      <div class="caja">
+        <h2>Respaldo de tu información</h2>
+        <div class="pad">
+          <p>Guarda una copia de todo lo que has cargado (productos, clientes, ventas, caja y ajustes de stock) en un archivo de Excel. Con ese mismo archivo puedes restaurar si algún día se pierde información.</p>
+          <p id="resp-ultimo" class="aviso" role="status"></p>
+          <div class="acciones"><button type="button" id="resp-descargar">Descargar respaldo (Excel)</button></div>
+          <div class="aviso" id="resp-msg" role="status" style="margin-top:10px"></div>
+        </div>
+      </div>
+      <div class="caja">
+        <h2>Restaurar desde un respaldo</h2>
+        <div class="pad">
+          <p>Sirve el archivo que descargaste aquí, o el de Google Sheets (en Sheets: Archivo → Descargar → Microsoft Excel). Solo <b>agrega lo que falta</b>: no borra ni cambia lo que ya existe, y no altera el stock de productos que siguen existiendo.</p>
+          <label for="resp-archivo">Archivo de respaldo (.xlsx)</label>
+          <input id="resp-archivo" type="file" accept=".xlsx,.xls">
+          <div class="aviso" id="resp-prev" role="status" style="margin-top:10px"></div>
+          <div class="acciones" style="margin-top:10px">
+            <button type="button" id="resp-restaurar" disabled>Restaurar</button>
+          </div>
+          <p class="aviso" style="margin-top:10px">Las fotos de los productos no van dentro del archivo: se quedan guardadas en Supabase. Si borras un producto, su foto sí se pierde.</p>
+        </div>
+      </div>
     </section>
 
     <div id="tip" role="tooltip" hidden></div>
@@ -708,9 +742,9 @@
           <div><label for="p-peso">Peso</label><input id="p-peso" autocomplete="off" placeholder="Ej: 10 lb"></div>
           <div><label for="p-tamano">Tamaño</label><input id="p-tamano" autocomplete="off"></div>
           <div><label for="p-color">Color</label><input id="p-color" autocomplete="off"></div>
-          <div><label for="p-costo">Costo ($)</label><input id="p-costo" type="number" inputmode="decimal" step="0.01" min="0" required></div>
-          <div><label for="p-precio">Precio de venta ($)</label><input id="p-precio" type="number" inputmode="decimal" step="0.01" min="0" required></div>
-          <div><label for="p-stock">Stock</label><input id="p-stock" type="number" inputmode="numeric" min="0" value="0" required></div>
+          <div><label for="p-costo">Costo ($)</label><input id="p-costo" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" required></div>
+          <div><label for="p-precio">Precio de venta ($)</label><input id="p-precio" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" required></div>
+          <div><label for="p-stock">Stock</label><input id="p-stock" type="text" inputmode="numeric" autocomplete="off" value="0" required><small id="p-stock-nota" class="nota-campo"></small></div>
           <div><label for="p-min">Stock mínimo</label><input id="p-min" type="number" inputmode="numeric" min="0" value="0" required></div>
           <div><label for="p-dias">Días de reposición</label><input id="p-dias" type="number" inputmode="numeric" min="0" value="7" required></div>
           <div class="foto-campo" style="grid-column:1/-1">
@@ -808,6 +842,8 @@
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const dinero = (n) => Number(n || 0).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const usd = (n) => "$ " + dinero(n);
+  // Número -> texto para los campos de dinero (con coma decimal, como se escribe en Venezuela)
+  const aTexto = (n) => String(Number(n || 0)).replace(".", ",");
 
   let productos = [];        // solo productos activos (los usan ventas y carrito)
   let productosTodos = [];   // activos y desactivados
@@ -866,7 +902,32 @@
   $("salir").addEventListener("click", () => sb.auth.signOut());
 
   // ---------- Menú lateral ----------
-  const TITULOS = { inicio: "Inicio", ventas: "Ventas", dashboard: "Dashboard", productos: "Productos", reposicion: "Reposición", caja: "Caja" };
+  const TITULOS = { inicio: "Inicio", ventas: "Ventas", dashboard: "Dashboard", productos: "Productos", reposicion: "Reposición", caja: "Caja", respaldo: "Respaldo" };
+  // Estados de Venezuela y su número (el mismo de la tabla estados_ve en Supabase): 1 = Distrito Capital (Caracas)
+  const ESTADOS_VE = [
+    [1, "Distrito Capital", "Caracas"], [2, "Amazonas", "Puerto Ayacucho"], [3, "Anzoátegui", "Barcelona"],
+    [4, "Apure", "San Fernando de Apure"], [5, "Aragua", "Maracay"], [6, "Barinas", "Barinas"],
+    [7, "Bolívar", "Ciudad Bolívar"], [8, "Carabobo", "Valencia"], [9, "Cojedes", "San Carlos"],
+    [10, "Delta Amacuro", "Tucupita"], [11, "Falcón", "Coro"], [12, "Guárico", "San Juan de los Morros"],
+    [13, "La Guaira", "La Guaira (antes Vargas)"], [14, "Lara", "Barquisimeto"], [15, "Mérida", "Mérida"],
+    [16, "Miranda", "Los Teques"], [17, "Monagas", "Maturín"], [18, "Nueva Esparta", "La Asunción"],
+    [19, "Portuguesa", "Guanare"], [20, "Sucre", "Cumaná"], [21, "Táchira", "San Cristóbal"],
+    [22, "Trujillo", "Trujillo"], [23, "Yaracuy", "San Felipe"], [24, "Zulia", "Maracaibo"],
+  ];
+  function codigoEstadoVE(txt) {
+    const quitar = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+      .replace(/^\s*(estado|edo\.?)\s+/, "").trim();
+    const t = quitar(txt);
+    if (["caracas", "capital", "dtto capital", "dtto. capital", "distrito federal", "dc"].includes(t)) return 1;
+    if (t === "vargas") return 13;
+    const e = ESTADOS_VE.find((x) => quitar(x[1]) === t);
+    return e ? e[0] : 0;
+  }
+  function llenarEstadosVE() {
+    $("c-region").insertAdjacentHTML("beforeend", ESTADOS_VE.map((e) => `<option value="${e[0]}">${e[0]} – ${esc(e[1])}</option>`).join(""));
+    $("tabla-estados").innerHTML = `<table><thead><tr><th>Número</th><th>Estado</th><th>Capital</th></tr></thead><tbody>` +
+      ESTADOS_VE.map((e) => `<tr><td><b>${e[0]}</b></td><td>${esc(e[1])}</td><td>${esc(e[2])}</td></tr>`).join("") + `</tbody></table>`;
+  }
   function abrirMenu() {
     $("menu").classList.add("abierto");
     $("velo").hidden = false;
@@ -899,6 +960,7 @@
     if (v === "ventas") verLista();
     if (v === "dashboard") cargarDashboard();
     if (v === "caja") cargarCaja();
+    if (v === "respaldo") ultimoRespaldoTexto();
   }
 
   // ---------- Datos ----------
@@ -1092,7 +1154,7 @@
   function limpiarForm() {
     $("f-prod").reset();
     $("p-id").value = "";
-    $("p-stock").disabled = false;
+    $("p-stock").disabled = false; delete $("p-stock").dataset.orig; $("p-stock-nota").textContent = "";
     $("titulo-form").textContent = "Agregar producto";
     $("p-cancelar").hidden = true;
     $("p-desactivar").hidden = true;
@@ -1109,7 +1171,7 @@
     $("p-sku").value = p.sku;
     $("p-modelo").value = p.modelo ?? ""; $("p-marca").value = p.marca ?? ""; $("p-tipo").value = p.tipo ?? "";
     $("p-peso").value = p.peso ?? ""; $("p-tamano").value = p.tamano ?? ""; $("p-color").value = p.color ?? "";
-    $("p-costo").value = p.costo; $("p-precio").value = p.precio;
+    $("p-costo").value = aTexto(p.costo); $("p-precio").value = aTexto(p.precio);
     $("p-min").value = p.stock_minimo; $("p-dias").value = p.dias_reposicion;
   }
 
@@ -1122,7 +1184,8 @@
     llenarForm(p);
     if (b.dataset.editar) {
       $("p-id").value = p.id;
-      $("p-stock").value = p.stock; $("p-stock").disabled = true; // el stock cambia con compras y ventas
+      $("p-stock").value = p.stock; $("p-stock").dataset.orig = p.stock;
+      $("p-stock-nota").textContent = "Puedes corregirlo aquí. Cada cambio queda anotado en el historial de ajustes.";
       $("titulo-form").textContent = "Editar producto";
       $("p-cancelar").hidden = false;
       const d = $("p-desactivar");
@@ -1219,17 +1282,44 @@
     const datos = {
       sku, marca: v("p-marca"), modelo: v("p-modelo"), tipo: v("p-tipo"), peso: v("p-peso"),
       tamano: v("p-tamano"), color: v("p-color"),
-      costo: Number($("p-costo").value), precio: Number($("p-precio").value),
+      costo: numero($("p-costo").value), precio: numero($("p-precio").value),
       stock_minimo: Number($("p-min").value), dias_reposicion: Number($("p-dias").value),
     };
     // El "nombre" se arma solo con tipo, marca, modelo, tamaño y color (lo usan los reportes y las ventas)
     datos.nombre = armarNombre(datos);
+    for (const [k, t] of [["costo", "El costo"], ["precio", "El precio de venta"]]) {
+      if (datos[k] === null || Number.isNaN(datos[k]) || datos[k] < 0) {
+        $("msg").style.color = "var(--alerta)";
+        $("msg").textContent = t + " no es válido. Escribe un número, por ejemplo 12,50.";
+        return;
+      }
+    }
+    const stockNuevo = numero($("p-stock").value);
+    if (stockNuevo === null || Number.isNaN(stockNuevo) || stockNuevo < 0 || !Number.isInteger(stockNuevo)) {
+      $("msg").style.color = "var(--alerta)";
+      $("msg").textContent = "El stock debe ser un número entero (0 o más).";
+      return;
+    }
     const btn = $("p-guardar"); btn.disabled = true;
     let id = $("p-id").value;
     let res;
-    if (id) res = await sb.from("productos").update(datos).eq("id", id);
+    if (id) {
+      res = await sb.from("productos").update(datos).eq("id", id);
+      const orig = $("p-stock").dataset.orig;
+      if (!res.error && orig !== undefined && Number(orig) !== stockNuevo) {
+        const aj = await sb.rpc("ajustar_stock", { p_id: Number(id), p_nuevo: stockNuevo, p_motivo: "Corrección desde Productos" });
+        if (aj.error) {
+          btn.disabled = false;
+          const falta = /could not find the function|PGRST202/i.test(aj.error.message + (aj.error.code || ""));
+          $("msg").style.color = "var(--alerta)";
+          $("msg").textContent = "Se guardaron los datos, pero no se pudo cambiar el stock: " + aj.error.message + (falta ? " (Falta ejecutar en Supabase el SQL migracion6.)" : "");
+          cargarTodo();
+          return;
+        }
+      }
+    }
     else {
-      res = await sb.from("productos").insert({ ...datos, stock: Number($("p-stock").value) }).select("id").single();
+      res = await sb.from("productos").insert({ ...datos, stock: stockNuevo }).select("id").single();
       if (!res.error) id = res.data && res.data.id;
     }
     if (res.error) {
@@ -1612,7 +1702,7 @@
   // --- Datos del cliente, descuento y envío
   const normCed = (s) => s.toUpperCase().replace(/[\s.]/g, "");
   const PAGO = { EFECTIVO: "Efectivo", USDT: "USDT" };
-  const num0 = (id) => Math.max(0, Number($(id).value) || 0);
+  const num0 = (id) => Math.max(0, numero($(id).value) || 0);
   const costoCarrito = () => carrito.reduce((s, l) => s + l.qty * prod(l.id).costo, 0);
 
   // Recalcula subtotal, descuento, total a cobrar, profit estimado y el aviso de caja
@@ -1644,7 +1734,8 @@
     if (!data) return;
     const poner = (id, v) => { if (!$(id).value.trim()) $(id).value = v ?? ""; };
     poner("c-nombre", data.nombre); poner("c-apellido", data.apellido); poner("c-tel", data.telefono);
-    poner("c-ciudad", data.ciudad); poner("c-region", data.estado); poner("c-dir", data.direccion);
+    poner("c-ciudad", data.ciudad); poner("c-dir", data.direccion);
+    if (!$("c-region").value && data.estado) { const cod = codigoEstadoVE(data.estado); if (cod > 0) $("c-region").value = String(cod); }
     let extra = "";
     try {
       const h = await sb.from("v_ventas_resumen").select("total,estado").eq("cliente_id", data.id);
@@ -1666,6 +1757,8 @@
     const btn = $("c-confirmar");
     btn.disabled = true; $("c-msg").textContent = "";
     const cliente = $("c-nombre").value.trim() + " " + $("c-apellido").value.trim();
+    const regionCod = Number($("c-region").value);
+    const regionNom = (ESTADOS_VE.find((x) => x[0] === regionCod) || [0, ""])[1];
     const envio = $("c-envio").value;
     const pago = $("c-pago").value;
     const estado = $("c-estado").value;
@@ -1679,7 +1772,8 @@
       p_items: carrito.map((l) => ({ producto_id: l.id, cantidad: l.qty })),
       p_telefono: $("c-tel").value.trim(),
       p_ciudad: $("c-ciudad").value.trim(),
-      p_region: $("c-region").value.trim(),
+      p_region: regionNom,
+      p_region_codigo: regionCod,
       p_direccion: $("c-dir").value.trim(),
       p_descuento: desc,
       p_envio_costo: envc,
@@ -1692,10 +1786,15 @@
         (falta ? " (Falta ejecutar en Supabase el SQL de ventas.)" : "");
       return;
     }
-    ultimoPedido = { id: data, cliente, envio, pago, total, estado };
+    let codigoPed = "#" + data;
+    try {
+      const r = await sb.from("v_ventas_resumen").select("codigo_pedido").eq("venta_id", data).maybeSingle();
+      if (r.data && r.data.codigo_pedido) codigoPed = r.data.codigo_pedido;
+    } catch (e2) { /* si falla, se muestra el número interno */ }
+    ultimoPedido = { id: data, codigo: codigoPed, cliente, envio, pago, total, estado };
     carrito = []; guardarCarrito();
     $("f-cliente").reset(); $("c-aviso").textContent = ""; $("c-cli-aviso").textContent = "";
-    $("ok-titulo").textContent = "Pedido #" + data + " registrado";
+    $("ok-titulo").textContent = "Pedido " + codigoPed + " registrado";
     $("ok-detalle").innerHTML = `${esc(cliente)}<br>Envío: ${esc(envio)}<br>Pago: ${esc(PAGO[pago])}<br>Estado: ${esc(ESTADOS[estado])}<br>` +
       (desc ? `Descuento: ${usd(desc)}<br>` : "") + `<b>${usd(total)}</b><br>` +
       `<span class="aviso">${estado === "PENDIENTE" ? "Pendiente de pago: aún no se suma a la caja." : "Se sumó a la caja (" + esc(PAGO[pago]) + ")."}</span>`;
@@ -1727,6 +1826,7 @@
   let confirmando = null;   // id de la venta que se está por eliminar
   let filtroEstado = "TODOS";
   const estadoDe = (v) => v.estado || "PAGADO";
+  const nPed = (id) => { const v = ventasCache.find((x) => x.venta_id === id || String(x.venta_id) === String(id)); return v && v.codigo_pedido ? v.codigo_pedido : "#" + id; };
 
   function ventasMsg(texto, mal) {
     const m = $("ventas-msg");
@@ -1745,7 +1845,7 @@
           : est === "PENDIENTE"
             ? "Se devolverá el stock de los productos. Este pedido sigue pendiente de pago, así que no se resta nada de la caja."
             : `Se devolverá el stock de los productos y se restarán ${v.metodo_pago === "USDT" ? dinero(v.total) + " USDT" : usd(v.total)} de la caja (${PAGO[v.metodo_pago]}).`;
-        extra = `<div class="confirma" role="alert"><b>¿Eliminar el pedido #${esc(v.venta_id)}?</b><span>${detalle}</span>
+        extra = `<div class="confirma" role="alert"><b>¿Eliminar el pedido ${esc(nPed(v.venta_id))}?</b><span>${detalle}</span>
           <div class="fila">
             <button type="button" class="peligro-s mini" data-eliminar-si="${esc(v.venta_id)}">Sí, eliminar</button>
             <button type="button" class="sec mini" data-eliminar-no="1">Cancelar</button>
@@ -1767,7 +1867,7 @@
           <span class="chip env">${esc(v.metodo_envio || "Sin envío")}</span>
           ${v.metodo_pago ? `<span class="chip pago">${esc(PAGO[v.metodo_pago] || v.metodo_pago)}</span>` : ""}
         </div>
-        <small>Pedido #${esc(v.venta_id)}${v.cliente ? " de " + esc(v.cliente) : ""}${v.ciudad ? " · " + esc(v.ciudad) : ""}</small>
+        <small>Pedido ${esc(v.codigo_pedido || "#" + v.venta_id)}${v.cliente ? " de " + esc(v.cliente) : ""}${v.ciudad ? " · " + esc(v.ciudad) : ""}</small>
       </div>
       <div class="der">
         <span class="monto">${usd(v.total)}</span>
@@ -1819,7 +1919,7 @@
     const { error } = await sb.rpc("cambiar_estado_venta", { p_id: id, p_estado: nuevo });
     if (error) {
       const falta = /could not find the function|PGRST202/i.test(error.message + (error.code || ""));
-      ventasMsg("No se pudo cambiar el estado del pedido #" + id + ": " + error.message + (falta ? " (Falta ejecutar en Supabase el SQL de estados.)" : ""), true);
+      ventasMsg("No se pudo cambiar el estado del pedido " + nPed(id) + ": " + error.message + (falta ? " (Falta ejecutar en Supabase el SQL de estados.)" : ""), true);
       await cargarVentas(); return;
     }
     let extra = "";
@@ -1827,7 +1927,7 @@
       if (antes === "PENDIENTE" && nuevo !== "PENDIENTE") extra = " Se sumó a la caja.";
       else if (antes !== "PENDIENTE" && nuevo === "PENDIENTE") extra = " Se restó de la caja.";
     }
-    ventasMsg(`Pedido #${id}: ${ESTADOS[nuevo]}.${extra}`);
+    ventasMsg(`Pedido ${nPed(id)}: ${ESTADOS[nuevo]}.${extra}`);
     await cargarVentas();
   });
 
@@ -1841,10 +1941,10 @@
       const { error } = await sb.rpc("eliminar_venta", { p_id: id });
       if (error) {
         const falta = /could not find the function|PGRST202/i.test(error.message + (error.code || ""));
-        ventasMsg("No se pudo eliminar el pedido #" + id + ": " + error.message + (falta ? " (Falta ejecutar en Supabase el SQL para eliminar ventas.)" : ""), true);
+        ventasMsg("No se pudo eliminar el pedido " + nPed(id) + ": " + error.message + (falta ? " (Falta ejecutar en Supabase el SQL para eliminar ventas.)" : ""), true);
         confirmando = null; renderVentas(); return;
       }
-      ventasMsg("Pedido #" + id + " eliminado. Se devolvió el stock y se ajustó la caja.");
+      ventasMsg("Pedido " + nPed(id) + " eliminado. Se devolvió el stock y se ajustó la caja.");
       await cargarVentas();
       cargarTodo();
     }
@@ -2074,8 +2174,8 @@
       const f = (m) => (saldos.data.find((x) => x.moneda === m) || {}).monto;
       $("k-efectivo-v").textContent = usd(f("EFECTIVO"));
       $("k-usdt-v").textContent = dinero(f("USDT")) + " USDT";
-      $("k-efectivo").value = f("EFECTIVO") ?? 0;
-      $("k-usdt").value = f("USDT") ?? 0;
+      $("k-efectivo").value = aTexto(f("EFECTIVO") ?? 0);
+      $("k-usdt").value = aTexto(f("USDT") ?? 0);
     }
     if (mes.error || lista.error) {
       const msg = (mes.error || lista.error).message;
@@ -2097,10 +2197,14 @@
 
   $("f-mov").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const montoMov = numero($("m-monto").value);
+    if (montoMov === null || Number.isNaN(montoMov) || montoMov <= 0) {
+      $("m-msg").style.color = "var(--alerta)"; $("m-msg").textContent = "Escribe un monto mayor que cero, por ejemplo 12,50."; return;
+    }
     const btn = $("m-guardar"); btn.disabled = true; $("m-msg").textContent = "";
     const { error } = await sb.rpc("registrar_movimiento_caja", {
       p_moneda: $("m-moneda").value, p_tipo: $("m-tipo").value,
-      p_monto: Number($("m-monto").value), p_concepto: $("m-concepto").value.trim(),
+      p_monto: montoMov, p_concepto: $("m-concepto").value.trim(),
     });
     btn.disabled = false;
     if (error) {
@@ -2117,8 +2221,12 @@
   $("f-caja").addEventListener("submit", async (e) => {
     e.preventDefault();
     $("k-msg").textContent = "";
-    const a = await sb.rpc("ajustar_caja", { p_moneda: "EFECTIVO", p_nuevo: Number($("k-efectivo").value) });
-    const b = a.error ? a : await sb.rpc("ajustar_caja", { p_moneda: "USDT", p_nuevo: Number($("k-usdt").value) });
+    const nEf = numero($("k-efectivo").value), nUs = numero($("k-usdt").value);
+    if ([nEf, nUs].some((x) => x === null || Number.isNaN(x) || x < 0)) {
+      $("k-msg").style.color = "var(--alerta)"; $("k-msg").textContent = "Escribe los saldos como números, por ejemplo 150,25."; return;
+    }
+    const a = await sb.rpc("ajustar_caja", { p_moneda: "EFECTIVO", p_nuevo: nEf });
+    const b = a.error ? a : await sb.rpc("ajustar_caja", { p_moneda: "USDT", p_nuevo: nUs });
     if (b.error) {
       const falta = /could not find the function|PGRST202/i.test(b.error.message + (b.error.code || ""));
       $("k-msg").style.color = "var(--alerta)";
@@ -2129,6 +2237,99 @@
     $("k-msg").style.color = "var(--ok)"; $("k-msg").textContent = "Saldos guardados.";
   });
 
+  // ---------- Respaldo y restauración ----------
+  const TABLAS_RESPALDO = [
+    ["productos", "id"], ["clientes", "id"], ["ventas", "id"], ["venta_items", "id"], ["compras", "id"],
+    ["caja_movimientos", "id"], ["caja_saldos", "moneda"], ["stock_ajustes", "id"], ["estados_ve", "codigo"],
+  ];
+  const TABLAS_RESTAURAR = ["productos", "clientes", "ventas", "venta_items", "compras", "caja_movimientos", "caja_saldos", "stock_ajustes"];
+  let respDatos = null;
+
+  function ultimoRespaldoTexto() {
+    let t = null;
+    try { t = localStorage.getItem("inventario_ultimo_respaldo"); } catch (e) { /* sin almacenamiento */ }
+    $("resp-ultimo").textContent = t ? "Última descarga desde este teléfono/computador: " + fechaLarga(t) + "." : "Aún no has descargado ningún respaldo desde este dispositivo.";
+  }
+  async function leerTablaCompleta(nombre, orden) {
+    const filas = []; const paso = 1000;
+    for (let desde = 0; ; desde += paso) {
+      const { data, error } = await sb.from(nombre).select("*").order(orden, { ascending: true }).range(desde, desde + paso - 1);
+      if (error) return { error };
+      filas.push(...data);
+      if (data.length < paso) break;
+    }
+    return { filas };
+  }
+  $("resp-descargar").addEventListener("click", async () => {
+    const btn = $("resp-descargar"); btn.disabled = true;
+    const msg = $("resp-msg"); msg.classList.remove("mal"); msg.textContent = "Preparando el respaldo…";
+    try {
+      const X = await cargarXLSX();
+      const wb = X.utils.book_new(); const resumen = []; const omitidas = [];
+      for (const [t, orden] of TABLAS_RESPALDO) {
+        const r = await leerTablaCompleta(t, orden);
+        if (r.error) { omitidas.push(t); continue; }
+        resumen.push(`${r.filas.length} ${t.replace("_", " ")}`);
+        if (r.filas.length) X.utils.book_append_sheet(wb, X.utils.json_to_sheet(r.filas), t);
+      }
+      if (!wb.SheetNames.length) throw new Error("no se pudo leer ninguna tabla");
+      const hoy = new Date().toISOString().slice(0, 10);
+      X.writeFile(wb, `respaldo_pescalo_${hoy}.xlsx`);
+      try { localStorage.setItem("inventario_ultimo_respaldo", new Date().toISOString()); } catch (e) { /* sin almacenamiento */ }
+      ultimoRespaldoTexto();
+      msg.textContent = "Respaldo descargado: " + resumen.join(", ") + "." + (omitidas.length ? " No se pudo leer: " + omitidas.join(", ") + "." : "");
+    } catch (e) {
+      msg.classList.add("mal"); msg.textContent = "No se pudo crear el respaldo: " + e.message;
+    }
+    btn.disabled = false;
+  });
+
+  $("resp-archivo").addEventListener("change", async (ev) => {
+    respDatos = null; $("resp-restaurar").disabled = true; $("resp-prev").classList.remove("mal");
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) { $("resp-prev").textContent = ""; return; }
+    try {
+      const X = await cargarXLSX();
+      const wb = X.read(await f.arrayBuffer());
+      const datos = {}; const cuentas = [];
+      for (const t of TABLAS_RESTAURAR) {
+        const ws = wb.Sheets[t];
+        if (!ws) continue;
+        const filas = X.utils.sheet_to_json(ws, { defval: null, raw: true }).map((fila) => {
+          const o = {};
+          for (const [k, v] of Object.entries(fila)) o[k] = (v === "" || v === undefined) ? null : v;
+          return o;
+        });
+        if (filas.length) { datos[t] = filas; cuentas.push(`${filas.length} ${t.replace("_", " ")}`); }
+      }
+      if (!datos.productos && !datos.ventas && !datos.clientes) throw new Error("no parece un respaldo de Pescalo (faltan las hojas productos, clientes o ventas)");
+      respDatos = datos;
+      $("resp-prev").textContent = "El archivo trae: " + cuentas.join(", ") + ". Al restaurar solo se agregará lo que falte.";
+      $("resp-restaurar").disabled = false;
+    } catch (e) {
+      $("resp-prev").classList.add("mal"); $("resp-prev").textContent = "No se pudo leer el archivo: " + e.message;
+    }
+  });
+  $("resp-restaurar").addEventListener("click", async () => {
+    const b = $("resp-restaurar");
+    if (!respDatos) return;
+    if (b.dataset.confirma !== "1") { b.dataset.confirma = "1"; b.textContent = "Sí, restaurar ahora"; return; }
+    b.dataset.confirma = ""; b.textContent = "Restaurar"; b.disabled = true;
+    $("resp-prev").classList.remove("mal"); $("resp-prev").textContent = "Restaurando…";
+    const { data, error } = await sb.rpc("restaurar_respaldo", { p_datos: respDatos });
+    if (error) {
+      const falta = /could not find the function|PGRST202/i.test(error.message + (error.code || ""));
+      $("resp-prev").classList.add("mal");
+      $("resp-prev").textContent = "No se pudo restaurar (no se cambió nada): " + error.message + (falta ? " (Falta ejecutar en Supabase el SQL migracion6.)" : "");
+      b.disabled = false; return;
+    }
+    const partes = Object.entries(data || {}).filter(([, n]) => n !== 0 && n !== "0").map(([t, n]) => `${n} ${t.replace("_", " ")}`);
+    $("resp-prev").textContent = partes.length ? "Listo. Se agregó: " + partes.join(", ") + "." : "Listo. No faltaba nada: todo lo del archivo ya estaba en el sistema.";
+    respDatos = null; $("resp-archivo").value = "";
+    await cargarTodo();
+  });
+
+  llenarEstadosVE();
   iniciar();
 </script>
 </body>
