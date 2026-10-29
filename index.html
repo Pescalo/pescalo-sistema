@@ -585,6 +585,7 @@
             </div>
             <div><label for="c-desc">Descuento ($)</label><input id="c-desc" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="0"></div>
             <div><label for="c-envc">Envío que pagas tú ($)</label><input id="c-envc" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="0"></div>
+            <div><label for="c-recib">Monto recibido ($ o USDT)</label><input id="c-recib" type="text" inputmode="decimal" autocomplete="off" placeholder="Vacío = llegó exacto"></div>
             <div class="aviso" id="c-aviso" style="grid-column:1/-1" role="status"></div>
             <div class="acciones">
               <button type="button" class="sec" id="c-volver">Volver al carrito</button>
@@ -603,6 +604,7 @@
           </div>
           <div class="total"><span>Total a cobrar</span><b id="c-total">$ 0,00</b></div>
           <div class="pad" style="padding-top:0">
+            <div class="dato" id="c-dif-fila" hidden><span>Diferencia de cambio</span><b id="c-dif" class="neg">$ 0,00</b></div>
             <div class="dato"><span>Profit estimado (ya restado el envío)</span><b id="c-profit">–</b></div>
           </div>
         </div>
@@ -1748,24 +1750,33 @@
   const costoCarrito = () => carrito.reduce((s, l) => s + l.qty * prod(l.id).costo, 0);
 
   // Recalcula subtotal, descuento, total a cobrar, profit estimado y el aviso de caja
+  const leerRecibido = () => { const t = $("c-recib").value.trim(); return t === "" ? null : numero(t); };
   function recalcPedido() {
     const sub = totalCarrito(), desc = num0("c-desc"), envc = num0("c-envc");
     const total = sub - desc;
+    const rec = leerRecibido();
+    const recOk = rec !== null && !Number.isNaN(rec) && rec >= 0;
+    const dif = recOk ? total - rec : 0;
+    const entra = recOk ? rec : total;
+    $("c-dif-fila").hidden = !recOk || dif === 0;
+    $("c-dif").textContent = (dif > 0 ? "− " : "+ ") + usd(Math.abs(dif));
+    $("c-dif").className = dif > 0 ? "neg" : "pos";
     $("c-subtotal").textContent = usd(sub);
     $("c-descuento-txt").textContent = desc ? "− " + usd(desc) : usd(0);
     $("c-total").textContent = usd(total);
-    const profit = total - costoCarrito() - envc;
+    const profit = total - costoCarrito() - envc - dif;
     $("c-profit").textContent = usd(profit);
     $("c-profit").className = profit >= 0 ? "pos" : "neg";
     const pago = $("c-pago").value, est = $("c-estado").value;
     $("c-aviso").textContent = !pago ? ""
       : est === "PENDIENTE" ? "El pedido queda pendiente de pago: no se suma a la caja hasta que lo marques como pagado."
-      : pago === "EFECTIVO" ? `Se sumarán ${usd(total)} a la caja en efectivo.`
-      : `Se sumarán ${dinero(total)} USDT a la caja (1 USDT = $ 1).`;
-    $("c-msg").textContent = desc > sub ? "El descuento no puede ser mayor que el total del pedido." : "";
+      : pago === "EFECTIVO" ? `Se sumarán ${usd(entra)} a la caja en efectivo.`
+      : `Se sumarán ${dinero(entra)} USDT a la caja (1 USDT = $ 1).`;
+    $("c-msg").textContent = desc > sub ? "El descuento no puede ser mayor que el total del pedido."
+      : (rec !== null && !recOk) ? "El monto recibido no es válido. Escribe un número, por ejemplo 11,56." : "";
   }
   ["c-pago", "c-estado"].forEach((id) => $(id).addEventListener("change", recalcPedido));
-  ["c-desc", "c-envc"].forEach((id) => $(id).addEventListener("input", recalcPedido));
+  ["c-desc", "c-envc", "c-recib"].forEach((id) => $(id).addEventListener("input", recalcPedido));
 
   $("c-ced").addEventListener("change", async () => {
     const ced = normCed($("c-ced").value);
@@ -1796,6 +1807,8 @@
     if (!carrito.length) { $("c-msg").textContent = "El carrito está vacío."; return; }
     const sub = totalCarrito(), desc = num0("c-desc"), envc = num0("c-envc");
     if (desc > sub) { $("c-msg").textContent = "El descuento no puede ser mayor que el total del pedido."; return; }
+    const recibido = leerRecibido();
+    if (recibido !== null && (Number.isNaN(recibido) || recibido < 0)) { $("c-msg").textContent = "El monto recibido no es válido. Escribe un número, por ejemplo 11,56."; return; }
     const btn = $("c-confirmar");
     btn.disabled = true; $("c-msg").textContent = "";
     const cliente = $("c-nombre").value.trim() + " " + $("c-apellido").value.trim();
@@ -1805,7 +1818,7 @@
     const pago = $("c-pago").value;
     const estado = $("c-estado").value;
     const total = sub - desc;
-    const { data, error } = await sb.rpc("registrar_venta", {
+    const args = {
       p_nombre: $("c-nombre").value.trim(),
       p_apellido: $("c-apellido").value.trim(),
       p_cedula: normCed($("c-ced").value),
@@ -1820,12 +1833,14 @@
       p_descuento: desc,
       p_envio_costo: envc,
       p_estado: estado,
-    });
+    };
+    if (recibido !== null) args.p_monto_recibido = recibido;   // solo se envía si lo llenas
+    const { data, error } = await sb.rpc("registrar_venta", args);
     btn.disabled = false;
     if (error) {
       const falta = /could not find the function|PGRST202/i.test(error.message + (error.code || ""));
       $("c-msg").textContent = "No se pudo registrar el pedido: " + error.message +
-        (falta ? " (Falta ejecutar en Supabase el SQL de ventas.)" : "");
+        (falta ? " (Falta ejecutar en Supabase el SQL de ventas: migracion6 y migracion7.)" : "");
       return;
     }
     let codigoPed = "#" + data;
@@ -1839,6 +1854,7 @@
     $("ok-titulo").textContent = "Pedido " + codigoPed + " registrado";
     $("ok-detalle").innerHTML = `${esc(cliente)}<br>Envío: ${esc(envio)}<br>Pago: ${esc(PAGO[pago])}<br>Estado: ${esc(ESTADOS[estado])}<br>` +
       (desc ? `Descuento: ${usd(desc)}<br>` : "") + `<b>${usd(total)}</b><br>` +
+      (recibido !== null && recibido !== total ? `Recibido: ${usd(recibido)} (diferencia ${usd(total - recibido)})<br>` : "") +
       `<span class="aviso">${estado === "PENDIENTE" ? "Pendiente de pago: aún no se suma a la caja." : "Se sumó a la caja (" + esc(PAGO[pago]) + ")."}</span>`;
     irPaso(3);
     await cargarTodo();
@@ -1886,7 +1902,7 @@
           ? "Se devolverá el stock de los productos. Esta venta no tiene forma de pago registrada, así que no se resta nada de la caja."
           : est === "PENDIENTE"
             ? "Se devolverá el stock de los productos. Este pedido sigue pendiente de pago, así que no se resta nada de la caja."
-            : `Se devolverá el stock de los productos y se restarán ${v.metodo_pago === "USDT" ? dinero(v.total) + " USDT" : usd(v.total)} de la caja (${PAGO[v.metodo_pago]}).`;
+            : `Se devolverá el stock de los productos y se restarán ${v.metodo_pago === "USDT" ? dinero(v.monto_recibido ?? v.total) + " USDT" : usd(v.monto_recibido ?? v.total)} de la caja (${PAGO[v.metodo_pago]}).`;
         extra = `<div class="confirma" role="alert"><b>¿Eliminar el pedido ${esc(nPed(v.venta_id))}?</b><span>${detalle}</span>
           <div class="fila">
             <button type="button" class="peligro-s mini" data-eliminar-si="${esc(v.venta_id)}">Sí, eliminar</button>
@@ -1915,6 +1931,7 @@
         <span class="monto">${usd(v.total)}</span>
         <small class="${g >= 0 ? "pos" : "neg"}">Profit ${usd(g)}</small>
         ${desc ? `<small>Descuento ${usd(desc)}</small>` : ""}
+        ${Number(v.diferencia || 0) !== 0 ? `<small>Recibido ${usd(v.monto_recibido)} · dif. ${usd(v.diferencia)}</small>` : ""}
       </div>
       ${extra}
     </div>`;
