@@ -1103,9 +1103,12 @@
   const armarNombre = (d) => [d.tipo, d.marca, d.accion, d.tamano, d.color].filter(Boolean).join(" ") || d.sku;
   let gruposAbiertos = new Set();
 
+  const porCodigo = (a, b) => String(a ?? "").localeCompare(String(b ?? ""), "es", { numeric: true, sensitivity: "base" });
   async function cargarProductos() {
     const { data, error } = await sb.from("productos").select("*").order("nombre");
     if (error) { $("lista-productos").innerHTML = `<div class="vacio">Error: ${esc(error.message)}</div>`; return; }
+    // Orden por código, entendiendo números: 9060-A, 9060-B, 9060-D… y 9060 antes que 9115
+    data.sort((a, b) => porCodigo(a.sku, b.sku));
     productosTodos = data;
     productos = data.filter((p) => p.activo !== false);
     $("r-productos").textContent = productos.length;
@@ -1146,8 +1149,7 @@
 
   // Un modelo = una tarjeta; cada color es una fila con su stock y botones para sumar o restar
   function htmlColores(items) {
-    const ord = items.slice().sort((a, b) => String(a.tamano || "").localeCompare(String(b.tamano || ""), "es") ||
-      String(a.color || "").localeCompare(String(b.color || ""), "es"));
+    const ord = items.slice().sort((a, b) => porCodigo(a.sku, b.sku));
     return `<div class="vars">` + ord.map((p) => {
       const act = p.activo !== false, bajo = act && p.stock <= p.stock_minimo;
       const estado = !act ? "" : p.stock < 1 ? `<span class="chip urg">Agotado</span>` : bajo ? `<span class="chip urg">Poco stock</span>` : "";
@@ -1175,7 +1177,7 @@
       if (!grupos.has(k)) grupos.set(k, { nombre: partes.filter(Boolean).join(" "), items: [] });
       grupos.get(k).items.push(p);
     });
-    const orden = [...grupos.entries()].sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, "es"));
+    const orden = [...grupos.entries()].sort((a, b) => porCodigo(a[1].items[0].sku, b[1].items[0].sku));
     let h = orden.map(([k, g]) => {
       const act = g.items.filter((p) => p.activo !== false);
       const stock = act.reduce((s, p) => s + p.stock, 0);
@@ -1271,7 +1273,7 @@
     if (error) { $("lista-reposicion").innerHTML = `<div class="vacio">Error: ${esc(error.message)}</div>`; return; }
     $("r-reponer").textContent = data.filter((r) => r.estado === "REPONER").length;
     reposCache = data.map((r) => ({ ...r, urgencia: r.urgencia || (r.estado === "REPONER" ? "PRONTO" : "OK") }))
-      .sort((a, b) => ORD_URG[a.urgencia] - ORD_URG[b.urgencia] || String(a.nombre).localeCompare(String(b.nombre), "es"));
+      .sort((a, b) => ORD_URG[a.urgencia] - ORD_URG[b.urgencia] || porCodigo(a.sku, b.sku));
     if (!reposCache.length) { $("lista-reposicion").innerHTML = `<div class="vacio">Sin productos todavía.</div>`; return; }
     $("lista-reposicion").innerHTML = `<table>
       <thead><tr><th>Producto</th><th>Prioridad</th><th class="n">Pedir</th><th class="n">Stock</th><th class="n">Vendido (30 días)</th>
