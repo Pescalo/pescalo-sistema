@@ -328,6 +328,17 @@
   #x-tabla td.nom { white-space: normal; min-width: 160px; }
   #x-tabla td small { display: block; color: var(--tenue); font-size: 13px; }
   #x-lista-prod { max-height: 50vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .vars { display: grid; }
+  .var { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 18px; border-top: 1px solid var(--linea); background: var(--campo); }
+  .var-info { display: grid; gap: 2px; flex: 1 1 140px; min-width: 0; }
+  .var-info b { font-weight: 600; }
+  .var-info small { color: var(--tenue); font-size: 13px; }
+  .stk { display: flex; align-items: center; gap: 6px; }
+  .stk button { min-width: 44px; min-height: 44px; padding: 0; font-size: 22px; line-height: 1; }
+  .stk input { width: 64px; min-height: 44px; text-align: center; font-size: 18px; font-weight: 650; padding: 4px; }
+  .stk-min { color: var(--tenue); font-size: 13px; margin-left: 4px; white-space: nowrap; }
+  .var-acc { margin-left: auto; white-space: nowrap; }
+  .g-pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 18px; border-top: 1px solid var(--linea); color: var(--tenue); font-size: 14px; background: var(--campo); }
   .nota-campo { display: block; margin-top: 4px; color: var(--tenue); font-size: 13px; }
   .chip.urg { background: var(--alerta-suave); color: var(--alerta); }
 
@@ -815,6 +826,7 @@
           <input type="hidden" id="p-id">
           <div><label for="p-sku">Código</label><input id="p-sku" autocomplete="off" required></div>
           <div><label for="p-modelo">Modelo</label><input id="p-modelo" autocomplete="off" placeholder="Ej: Minnow 9"></div>
+          <div><label for="p-accion">Acción</label><input id="p-accion" autocomplete="off" placeholder="Ej: Flotante, Hundimiento, Topwater"></div>
           <div><label for="p-marca">Marca</label><input id="p-marca" autocomplete="off"></div>
           <div><label for="p-tipo">Tipo</label><input id="p-tipo" autocomplete="off"></div>
           <div><label for="p-peso">Peso</label><input id="p-peso" autocomplete="off" placeholder="Ej: 10 lb"></div>
@@ -838,6 +850,7 @@
             <button type="submit" id="p-guardar">Guardar producto</button>
             <button type="button" class="sec" id="p-cancelar" hidden>Cancelar edición</button>
             <button type="button" class="sec peligro" id="p-desactivar" hidden>Desactivar producto</button>
+            <button type="button" class="sec peligro" id="p-eliminar" hidden>Eliminar para siempre</button>
             <span id="msg" role="status"></span>
           </div>
         </form>
@@ -884,6 +897,7 @@
           <label class="check"><input id="p-inactivos" type="checkbox"> Mostrar desactivados</label>
           <div class="aviso" id="p-contador" role="status"></div>
         </div>
+        <div class="aviso" id="g-msg" role="status" style="padding:0 18px 8px"></div>
         <div class="scroll" id="lista-productos"></div>
       </div>
     </section>
@@ -1121,23 +1135,35 @@
 
   function htmlTabla(lista) {
     return `<table>
-      <thead><tr><th></th><th>Código</th><th>Modelo</th><th>Marca</th><th>Tipo</th><th>Peso</th><th>Tamaño</th><th>Color</th>
+      <thead><tr><th></th><th>Código</th><th>Modelo</th><th>Acción</th><th>Marca</th><th>Tipo</th><th>Peso</th><th>Tamaño</th><th>Color</th>
       <th class="n">Costo ($)</th><th class="n">Precio de venta ($)</th><th class="n">Margen</th><th class="n">Stock</th>
       <th class="n">Stock mín.</th><th class="n">Días de reposición</th><th></th></tr></thead><tbody>` +
-      lista.map((p) => `<tr${claseFila(p)}><td>${miniatura(p)}</td><td>${esc(p.sku)}${chipOff(p)}</td><td>${esc(p.modelo)}</td><td>${esc(p.marca)}</td><td>${esc(p.tipo)}</td>
+      lista.map((p) => `<tr${claseFila(p)}><td>${miniatura(p)}</td><td>${esc(p.sku)}${chipOff(p)}</td><td>${esc(p.modelo)}</td><td>${esc(p.accion)}</td><td>${esc(p.marca)}</td><td>${esc(p.tipo)}</td>
         <td>${esc(p.peso)}</td><td>${esc(p.tamano)}</td><td>${esc(p.color)}</td>
         <td class="n">${dinero(p.costo)}</td><td class="n">${dinero(p.precio)}</td>
         <td class="n">${margenTxt(p)}</td><td class="n">${p.stock}</td><td class="n">${p.stock_minimo}</td>
         <td class="n">${p.dias_reposicion}</td><td class="botones">${botonesProd(p)}</td></tr>`).join("") + `</tbody></table>`;
   }
 
-  function htmlVariantes(lista) {
-    return `<table>
-      <thead><tr><th></th><th>Código</th><th>Color</th><th>Tamaño</th><th>Peso</th><th class="n">Costo ($)</th><th class="n">Precio ($)</th>
-      <th class="n">Stock</th><th class="n">Stock mín.</th><th></th></tr></thead><tbody>` +
-      lista.map((p) => `<tr${claseFila(p)}><td>${miniatura(p)}</td><td>${esc(p.sku)}${chipOff(p)}</td><td>${esc(p.color)}</td><td>${esc(p.tamano)}</td><td>${esc(p.peso)}</td>
-        <td class="n">${dinero(p.costo)}</td><td class="n">${dinero(p.precio)}</td><td class="n${p.stock <= p.stock_minimo ? " neg" : ""}">${p.stock}</td>
-        <td class="n">${p.stock_minimo}</td><td class="botones">${botonesProd(p)}</td></tr>`).join("") + `</tbody></table>`;
+  // Un modelo = una tarjeta; cada color es una fila con su stock y botones para sumar o restar
+  function htmlColores(items) {
+    const ord = items.slice().sort((a, b) => String(a.tamano || "").localeCompare(String(b.tamano || ""), "es") ||
+      String(a.color || "").localeCompare(String(b.color || ""), "es"));
+    return `<div class="vars">` + ord.map((p) => {
+      const act = p.activo !== false, bajo = act && p.stock <= p.stock_minimo;
+      const estado = !act ? "" : p.stock < 1 ? `<span class="chip urg">Agotado</span>` : bajo ? `<span class="chip urg">Poco stock</span>` : "";
+      const detalle = [p.tamano, p.peso, p.sku, usd(p.precio)].filter(Boolean).join(" · ");
+      const stk = act ? `<div class="stk"><button type="button" class="sec" data-stk="-1" data-id="${p.id}" aria-label="Quitar una unidad">−</button>
+          <input type="text" inputmode="numeric" autocomplete="off" data-stk-in="${p.id}" value="${p.stock}" aria-label="Stock de ${esc(p.color || p.sku)}">
+          <button type="button" class="sec" data-stk="1" data-id="${p.id}" aria-label="Sumar una unidad">+</button>
+          <span class="stk-min">mín. ${p.stock_minimo}</span></div>` : "";
+      return `<div class="var${act ? "" : " inactivo"}">
+        ${miniatura(p)}
+        <div class="var-info"><b>${esc(p.color || "Sin color")}${chipOff(p)}</b><small>${esc(detalle)}</small></div>
+        ${estado}${stk}
+        <div class="var-acc"><button class="sec mini" data-editar="${p.id}">Editar</button> <button class="sec mini" data-duplicar="${p.id}">Duplicar</button></div>
+      </div>`;
+    }).join("") + `</div>`;
   }
 
   function htmlAgrupado(lista, abrirTodo) {
@@ -1157,11 +1183,15 @@
       const rango = !pr.length ? "–" : Math.min(...pr) === Math.max(...pr) ? usd(pr[0]) : usd(Math.min(...pr)) + " – " + usd(Math.max(...pr));
       const bajos = act.filter((p) => p.stock <= p.stock_minimo).length;
       const conFoto = g.items.find((p) => urlFoto(p));
+      const accion = (g.items.find((p) => p.accion) || {}).accion;
+      const vCosto = act.reduce((s2, p) => s2 + p.stock * p.costo, 0), vVenta = act.reduce((s2, p) => s2 + p.stock * p.precio, 0);
       return `<details class="grupo" data-grupo="${esc(k)}"${abrirTodo || gruposAbiertos.has(k) ? " open" : ""}>
         <summary>${conFoto ? miniatura(conFoto) : `<span class="miniatura vacia" aria-hidden="true"></span>`}
-          <span class="g-info"><b>${esc(g.nombre)}</b><small>${g.items.length} ${g.items.length === 1 ? "variante" : "variantes"} · stock total ${stock} · ${rango}</small></span>
+          <span class="g-info"><b>${esc(g.nombre)}</b><small>${accion ? esc(accion) + " · " : ""}${g.items.length} ${g.items.length === 1 ? "color" : "colores"} · stock total ${stock} · ${rango}</small></span>
           ${bajos ? `<span class="chip urg">${bajos} con poco stock</span>` : ""}</summary>
-        ${htmlVariantes(g.items)}</details>`;
+        ${htmlColores(g.items)}
+        <div class="g-pie"><span>Valor a costo ${usd(vCosto)} · al vender ${usd(vVenta)}</span>
+          <button type="button" class="sec mini" data-duplicar="${g.items[0].id}">Agregar otro color</button></div></details>`;
     }).join("");
     if (sueltos.length) h += `<div class="sec-sub">Sin modelo asignado</div>` + htmlTabla(sueltos);
     return h;
@@ -1172,7 +1202,7 @@
     const q = sinAc($("p-buscar").value.trim());
     const verOff = $("p-inactivos").checked;
     const lista = productosTodos.filter((p) => (verOff || p.activo !== false) &&
-      (!q || q.split(/\s+/).every((w) => sinAc([p.sku, p.nombre, p.marca, p.tipo, p.modelo, p.color, p.tamano, p.peso].join(" ")).includes(w))));
+      (!q || q.split(/\s+/).every((w) => sinAc([p.sku, p.nombre, p.marca, p.tipo, p.modelo, p.accion, p.color, p.tamano, p.peso].join(" ")).includes(w))));
     $("p-contador").textContent = lista.length + (lista.length === 1 ? " producto" : " productos");
     if (!productosTodos.length) {
       cont.innerHTML = `<div class="vacio">Aún no hay productos. Agrega el primero con el formulario de arriba o impórtalos desde Excel.</div>`;
@@ -1192,6 +1222,50 @@
     if (!d || !d.dataset || !d.dataset.grupo || $("p-buscar").value.trim()) return;
     if (d.open) gruposAbiertos.add(d.dataset.grupo); else gruposAbiertos.delete(d.dataset.grupo);
   }, true);
+
+  // ---------- Stock rápido por color (+ / − o escribiendo el número) ----------
+  const stkTimers = {};
+  const gMsg = (t, mal) => { const m = $("g-msg"); m.textContent = t || ""; m.classList.toggle("mal", !!mal); };
+  function stkProgramar(id, nuevo) {
+    const p = prodTodos(id);
+    if (!p) return;
+    nuevo = Math.max(0, Math.floor(nuevo) || 0);
+    if (p._stkOrig === undefined) p._stkOrig = p.stock;
+    p.stock = nuevo;
+    renderProductos();
+    clearTimeout(stkTimers[id]);
+    stkTimers[id] = setTimeout(() => stkGuardar(id), 700);   // espera a que termines de tocar
+  }
+  async function stkGuardar(id) {
+    const p = prodTodos(id);
+    if (!p) return;
+    const orig = p._stkOrig, nuevo = p.stock;
+    delete p._stkOrig; delete stkTimers[id];
+    if (orig === undefined || orig === nuevo) return;
+    const { error } = await sb.rpc("ajustar_stock", { p_id: id, p_nuevo: nuevo, p_motivo: "Ajuste rápido por color" });
+    if (error) {
+      p.stock = orig; renderProductos();
+      const falta = /could not find the function|PGRST202/i.test(error.message + (error.code || ""));
+      gMsg("No se pudo cambiar el stock: " + error.message + (falta ? " (Falta ejecutar en Supabase el SQL migracion6.)" : ""), true);
+      return;
+    }
+    gMsg(`${p.nombre}: stock ${orig} → ${nuevo}.`);
+    await cargarTodo();
+  }
+  $("lista-productos").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-stk]");
+    if (!b) return;
+    const p = prodTodos(Number(b.dataset.id));
+    if (p) stkProgramar(p.id, p.stock + Number(b.dataset.stk));
+  });
+  $("lista-productos").addEventListener("change", (e) => {
+    const i = e.target.closest("input[data-stk-in]");
+    if (!i) return;
+    const p = prodTodos(Number(i.dataset.stkIn)), n = numero(i.value);
+    if (!p) return;
+    if (n === null || Number.isNaN(n) || n < 0 || !Number.isInteger(n)) { gMsg("El stock debe ser un número entero (0 o más).", true); renderProductos(); return; }
+    stkProgramar(p.id, n);
+  });
 
   async function cargarReposicion() {
     const { data, error } = await sb.from("v_reposicion").select("*").order("nombre");
@@ -1234,6 +1308,11 @@
     clearTimeout(confirmaDesactivar); confirmaDesactivar = null;
     const b = $("p-desactivar"); b.dataset.confirma = ""; b.textContent = b.dataset.base || "Desactivar producto";
   }
+  let confirmaEliminar = null;
+  function reiniciarEliminar() {
+    clearTimeout(confirmaEliminar); confirmaEliminar = null;
+    const b = $("p-eliminar"); b.dataset.confirma = ""; b.textContent = "Eliminar para siempre";
+  }
   function limpiarForm() {
     $("f-prod").reset();
     $("p-id").value = "";
@@ -1241,6 +1320,7 @@
     $("titulo-form").textContent = "Agregar producto";
     $("p-cancelar").hidden = true;
     $("p-desactivar").hidden = true;
+    $("p-eliminar").hidden = true; reiniciarEliminar();
     reiniciarDesactivar();
     $("msg").textContent = "";
     fotoNueva = null; fotoQuitar = false; $("p-foto").value = "";
@@ -1252,7 +1332,7 @@
 
   function llenarForm(p) {
     $("p-sku").value = p.sku;
-    $("p-modelo").value = p.modelo ?? ""; $("p-marca").value = p.marca ?? ""; $("p-tipo").value = p.tipo ?? "";
+    $("p-modelo").value = p.modelo ?? ""; $("p-accion").value = p.accion ?? ""; $("p-marca").value = p.marca ?? ""; $("p-tipo").value = p.tipo ?? "";
     $("p-peso").value = p.peso ?? ""; $("p-tamano").value = p.tamano ?? ""; $("p-color").value = p.color ?? "";
     $("p-costo").value = aTexto(p.costo); $("p-precio").value = aTexto(p.precio);
     $("p-min").value = p.stock_minimo; $("p-dias").value = p.dias_reposicion;
@@ -1271,6 +1351,7 @@
       $("p-stock-nota").textContent = "Puedes corregirlo aquí. Cada cambio queda anotado en el historial de ajustes.";
       $("titulo-form").textContent = "Editar producto";
       $("p-cancelar").hidden = false;
+      $("p-eliminar").hidden = false;
       const d = $("p-desactivar");
       d.hidden = false;
       d.dataset.base = p.activo === false ? "Reactivar producto" : "Desactivar producto";
@@ -1312,6 +1393,30 @@
   });
 
   // Desactivar pide confirmación con un segundo toque (el historial de ventas se conserva)
+  $("p-eliminar").addEventListener("click", async () => {
+    const id = Number($("p-id").value), p = prodTodos(id), b = $("p-eliminar");
+    if (!p) return;
+    if (b.dataset.confirma !== "1") {
+      b.dataset.confirma = "1";
+      b.textContent = "Se borra del todo y no se puede deshacer. Toca otra vez para eliminar";
+      confirmaEliminar = setTimeout(reiniciarEliminar, 8000);
+      return;
+    }
+    reiniciarEliminar(); b.disabled = true;
+    const { data, error } = await sb.rpc("eliminar_producto", { p_id: id });
+    b.disabled = false;
+    if (error) {
+      const falta = /could not find the function|PGRST202/i.test(error.message + (error.code || ""));
+      $("msg").style.color = "var(--alerta)";
+      $("msg").textContent = "No se pudo eliminar: " + error.message + (falta ? " (Falta ejecutar en Supabase el SQL migracion8.)" : "");
+      return;
+    }
+    if (data) { try { await sb.storage.from("productos").remove([data]); } catch (e) { /* si la foto no se borra, no pasa nada */ } }
+    limpiarForm();
+    $("msg").style.color = "var(--ok)"; $("msg").textContent = `"${p.nombre}" se eliminó por completo.`;
+    cargarTodo();
+  });
+
   $("p-desactivar").addEventListener("click", async () => {
     const id = Number($("p-id").value), p = prodTodos(id);
     if (!p) return;
@@ -1368,6 +1473,9 @@
       costo: numero($("p-costo").value), precio: numero($("p-precio").value),
       stock_minimo: Number($("p-min").value), dias_reposicion: Number($("p-dias").value),
     };
+    // "Acción" solo se envía si la usas (o si el producto ya la tenía): así todo funciona aunque falte el SQL nuevo
+    const accionTxt = v("p-accion");
+    if (accionTxt || productosTodos.some((p) => "accion" in p)) datos.accion = accionTxt;
     // El "nombre" se arma solo con tipo, marca, modelo, tamaño y color (lo usan los reportes y las ventas)
     datos.nombre = armarNombre(datos);
     for (const [k, t] of [["costo", "El costo"], ["precio", "El precio de venta"]]) {
@@ -1408,7 +1516,8 @@
     if (res.error) {
       btn.disabled = false;
       $("msg").style.color = "var(--alerta)";
-      $("msg").textContent = res.error.code === "23505" ? `Ya existe un producto con el código "${sku}".` : "No se pudo guardar: " + res.error.message;
+      $("msg").textContent = res.error.code === "23505" ? `Ya existe un producto con el código "${sku}".`
+        : "No se pudo guardar: " + res.error.message + (/accion/i.test(res.error.message) ? " (Falta ejecutar en Supabase el SQL migracion8.)" : "");
       return;
     }
     const problemaFoto = (fotoNueva || fotoQuitar) && id ? await guardarFoto(id) : "";
@@ -1432,10 +1541,10 @@
     });
     return xlsxPromesa;
   }
-  const COLS_IMPORT = [["sku", "Código"], ["modelo", "Modelo"], ["marca", "Marca"], ["tipo", "Tipo"], ["peso", "Peso"], ["tamano", "Tamaño"],
+  const COLS_IMPORT = [["sku", "Código"], ["modelo", "Modelo"], ["accion", "Acción"], ["marca", "Marca"], ["tipo", "Tipo"], ["peso", "Peso"], ["tamano", "Tamaño"],
     ["color", "Color"], ["costo", "Costo ($)"], ["precio", "Precio de venta ($)"], ["stock", "Stock"], ["stock_minimo", "Stock mínimo"],
     ["dias_reposicion", "Días de reposición"]];
-  const ALIAS = { codigo: "sku", sku: "sku", cod: "sku", referencia: "sku", modelo: "modelo", marca: "marca", tipo: "tipo", categoria: "tipo",
+  const ALIAS = { codigo: "sku", sku: "sku", cod: "sku", referencia: "sku", modelo: "modelo", accion: "accion", marca: "marca", tipo: "tipo", categoria: "tipo",
     peso: "peso", tamano: "tamano", talla: "tamano", medida: "tamano", color: "color", costo: "costo", costousd: "costo", preciocosto: "costo",
     precio: "precio", preciodeventa: "precio", precioventa: "precio", pvp: "precio", stock: "stock", existencia: "stock", cantidad: "stock",
     inventario: "stock", stockminimo: "stock_minimo", stockmin: "stock_minimo", minimo: "stock_minimo", diasdereposicion: "dias_reposicion",
@@ -1494,7 +1603,7 @@
       Object.entries(mapa).forEach(([h, f]) => { d[f] = r[h]; });
       if (Object.values(d).every((x) => String(x ?? "").trim() === "")) return;   // fila vacía
       const err = [], dado = {};
-      const o = { sku: txt(d.sku), modelo: txt(d.modelo), marca: txt(d.marca), tipo: txt(d.tipo), peso: txt(d.peso), tamano: txt(d.tamano), color: txt(d.color) };
+      const o = { sku: txt(d.sku), modelo: txt(d.modelo), accion: txt(d.accion), marca: txt(d.marca), tipo: txt(d.tipo), peso: txt(d.peso), tamano: txt(d.tamano), color: txt(d.color) };
       if (!o.sku) err.push("falta el código");
       const dinero_ = (v, nombre) => { const n = numero(v); if (n === null) { err.push("falta " + nombre); return 0; } if (isNaN(n) || n < 0) { err.push(nombre + " no es válido"); return 0; } return n; };
       o.costo = dinero_(d.costo, "el costo"); o.precio = dinero_(d.precio, "el precio");
@@ -1577,10 +1686,11 @@
     $("imp-confirmar").disabled = true; impMsg("Importando… no cierres la página.");
     let creados = 0, actualizados = 0;
     const fallos = [];
-    const payNuevo = (f) => ({ ...f.d, nombre: armarNombre(f.d) });
+    const payNuevo = (f) => { const o = { ...f.d, nombre: armarNombre(f.d) }; if (!o.accion) delete o.accion; return o; };
     const payUpd = (f) => {
       const ex = f.existente, m = {};
       ["modelo", "marca", "tipo", "peso", "tamano", "color"].forEach((k) => { m[k] = f.d[k] ?? ex[k] ?? null; });
+      if (f.d.accion || ex.accion) m.accion = f.d.accion ?? ex.accion ?? null;
       const p = { ...m, costo: f.d.costo, precio: f.d.precio, activo: true, nombre: armarNombre({ ...m, sku: ex.sku }) };
       if (f.dado.stock_minimo) p.stock_minimo = f.d.stock_minimo;
       if (f.dado.dias_reposicion) p.dias_reposicion = f.d.dias_reposicion;
