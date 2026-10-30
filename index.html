@@ -825,7 +825,6 @@
         <form class="grid" id="f-prod">
           <input type="hidden" id="p-id">
           <div><label for="p-sku">Código</label><input id="p-sku" autocomplete="off" required></div>
-          <div><label for="p-modelo">Modelo</label><input id="p-modelo" autocomplete="off" placeholder="Ej: Minnow 9"></div>
           <div><label for="p-accion">Acción</label><input id="p-accion" autocomplete="off" placeholder="Ej: Flotante, Hundimiento, Topwater"></div>
           <div><label for="p-marca">Marca</label><input id="p-marca" autocomplete="off"></div>
           <div><label for="p-tipo">Tipo</label><input id="p-tipo" autocomplete="off"></div>
@@ -891,7 +890,7 @@
             <label for="p-vista">Ver como</label>
             <select id="p-vista">
               <option value="lista">Lista</option>
-              <option value="modelo">Agrupada por modelo</option>
+              <option value="modelo">Agrupada por señuelo (colores juntos)</option>
             </select>
           </div>
           <label class="check"><input id="p-inactivos" type="checkbox"> Mostrar desactivados</label>
@@ -1101,7 +1100,7 @@
   // ---------- Lista de productos ----------
   const sinAc = (t) => String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const prodTodos = (id) => productosTodos.find((p) => p.id === id);
-  const armarNombre = (d) => [d.tipo, d.marca, d.modelo, d.tamano, d.color].filter(Boolean).join(" ") || d.sku;
+  const armarNombre = (d) => [d.tipo, d.marca, d.accion, d.tamano, d.color].filter(Boolean).join(" ") || d.sku;
   let gruposAbiertos = new Set();
 
   async function cargarProductos() {
@@ -1135,10 +1134,10 @@
 
   function htmlTabla(lista) {
     return `<table>
-      <thead><tr><th></th><th>Código</th><th>Modelo</th><th>Acción</th><th>Marca</th><th>Tipo</th><th>Peso</th><th>Tamaño</th><th>Color</th>
+      <thead><tr><th></th><th>Código</th><th>Acción</th><th>Marca</th><th>Tipo</th><th>Peso</th><th>Tamaño</th><th>Color</th>
       <th class="n">Costo ($)</th><th class="n">Precio de venta ($)</th><th class="n">Margen</th><th class="n">Stock</th>
       <th class="n">Stock mín.</th><th class="n">Días de reposición</th><th></th></tr></thead><tbody>` +
-      lista.map((p) => `<tr${claseFila(p)}><td>${miniatura(p)}</td><td>${esc(p.sku)}${chipOff(p)}</td><td>${esc(p.modelo)}</td><td>${esc(p.accion)}</td><td>${esc(p.marca)}</td><td>${esc(p.tipo)}</td>
+      lista.map((p) => `<tr${claseFila(p)}><td>${miniatura(p)}</td><td>${esc(p.sku)}${chipOff(p)}</td><td>${esc(p.accion)}</td><td>${esc(p.marca)}</td><td>${esc(p.tipo)}</td>
         <td>${esc(p.peso)}</td><td>${esc(p.tamano)}</td><td>${esc(p.color)}</td>
         <td class="n">${dinero(p.costo)}</td><td class="n">${dinero(p.precio)}</td>
         <td class="n">${margenTxt(p)}</td><td class="n">${p.stock}</td><td class="n">${p.stock_minimo}</td>
@@ -1169,10 +1168,11 @@
   function htmlAgrupado(lista, abrirTodo) {
     const grupos = new Map(), sueltos = [];
     lista.forEach((p) => {
-      const m = (p.modelo || "").trim();
-      if (!m) { sueltos.push(p); return; }
-      const k = sinAc(m);
-      if (!grupos.has(k)) grupos.set(k, { nombre: m, items: [] });
+      // Un señuelo = mismo tipo + marca + acción + tamaño; lo que cambia entre filas es el color
+      const partes = [p.tipo, p.marca, p.accion, p.tamano].map((x) => String(x || "").trim());
+      if (!partes[0] && !partes[1] && !partes[2]) { sueltos.push(p); return; }
+      const k = partes.map(sinAc).join("|");
+      if (!grupos.has(k)) grupos.set(k, { nombre: partes.filter(Boolean).join(" "), items: [] });
       grupos.get(k).items.push(p);
     });
     const orden = [...grupos.entries()].sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, "es"));
@@ -1183,17 +1183,16 @@
       const rango = !pr.length ? "–" : Math.min(...pr) === Math.max(...pr) ? usd(pr[0]) : usd(Math.min(...pr)) + " – " + usd(Math.max(...pr));
       const bajos = act.filter((p) => p.stock <= p.stock_minimo).length;
       const conFoto = g.items.find((p) => urlFoto(p));
-      const accion = (g.items.find((p) => p.accion) || {}).accion;
       const vCosto = act.reduce((s2, p) => s2 + p.stock * p.costo, 0), vVenta = act.reduce((s2, p) => s2 + p.stock * p.precio, 0);
       return `<details class="grupo" data-grupo="${esc(k)}"${abrirTodo || gruposAbiertos.has(k) ? " open" : ""}>
         <summary>${conFoto ? miniatura(conFoto) : `<span class="miniatura vacia" aria-hidden="true"></span>`}
-          <span class="g-info"><b>${esc(g.nombre)}</b><small>${accion ? esc(accion) + " · " : ""}${g.items.length} ${g.items.length === 1 ? "color" : "colores"} · stock total ${stock} · ${rango}</small></span>
+          <span class="g-info"><b>${esc(g.nombre)}</b><small>${g.items.length} ${g.items.length === 1 ? "color" : "colores"} · stock total ${stock} · ${rango}</small></span>
           ${bajos ? `<span class="chip urg">${bajos} con poco stock</span>` : ""}</summary>
         ${htmlColores(g.items)}
         <div class="g-pie"><span>Valor a costo ${usd(vCosto)} · al vender ${usd(vVenta)}</span>
           <button type="button" class="sec mini" data-duplicar="${g.items[0].id}">Agregar otro color</button></div></details>`;
     }).join("");
-    if (sueltos.length) h += `<div class="sec-sub">Sin modelo asignado</div>` + htmlTabla(sueltos);
+    if (sueltos.length) h += `<div class="sec-sub">Sin tipo, marca ni acción</div>` + htmlTabla(sueltos);
     return h;
   }
 
@@ -1202,7 +1201,7 @@
     const q = sinAc($("p-buscar").value.trim());
     const verOff = $("p-inactivos").checked;
     const lista = productosTodos.filter((p) => (verOff || p.activo !== false) &&
-      (!q || q.split(/\s+/).every((w) => sinAc([p.sku, p.nombre, p.marca, p.tipo, p.modelo, p.accion, p.color, p.tamano, p.peso].join(" ")).includes(w))));
+      (!q || q.split(/\s+/).every((w) => sinAc([p.sku, p.nombre, p.marca, p.tipo, p.accion, p.color, p.tamano, p.peso].join(" ")).includes(w))));
     $("p-contador").textContent = lista.length + (lista.length === 1 ? " producto" : " productos");
     if (!productosTodos.length) {
       cont.innerHTML = `<div class="vacio">Aún no hay productos. Agrega el primero con el formulario de arriba o impórtalos desde Excel.</div>`;
@@ -1332,7 +1331,7 @@
 
   function llenarForm(p) {
     $("p-sku").value = p.sku;
-    $("p-modelo").value = p.modelo ?? ""; $("p-accion").value = p.accion ?? ""; $("p-marca").value = p.marca ?? ""; $("p-tipo").value = p.tipo ?? "";
+    $("p-accion").value = p.accion ?? ""; $("p-marca").value = p.marca ?? ""; $("p-tipo").value = p.tipo ?? "";
     $("p-peso").value = p.peso ?? ""; $("p-tamano").value = p.tamano ?? ""; $("p-color").value = p.color ?? "";
     $("p-costo").value = aTexto(p.costo); $("p-precio").value = aTexto(p.precio);
     $("p-min").value = p.stock_minimo; $("p-dias").value = p.dias_reposicion;
@@ -1365,7 +1364,7 @@
       $("p-cancelar").hidden = false;
       $("msg").style.color = "var(--tenue)";
       $("msg").textContent = "Copia de " + p.nombre + ": escribe el código nuevo y cambia el color." +
-        (p.modelo ? "" : " Tip: ponle el mismo Modelo a los dos para verlos agrupados.");
+        " Para verlos juntos en la vista agrupada deben tener la misma marca, acción y tamaño.";
     }
     $("f-prod").scrollIntoView({ behavior: "smooth" });
     setTimeout(() => $(b.dataset.duplicar ? "p-sku" : "p-precio").focus({ preventScroll: true }), 350);
@@ -1468,7 +1467,7 @@
     const v = (id) => $(id).value.trim() || null;
     const sku = $("p-sku").value.trim();
     const datos = {
-      sku, marca: v("p-marca"), modelo: v("p-modelo"), tipo: v("p-tipo"), peso: v("p-peso"),
+      sku, marca: v("p-marca"), tipo: v("p-tipo"), peso: v("p-peso"),
       tamano: v("p-tamano"), color: v("p-color"),
       costo: numero($("p-costo").value), precio: numero($("p-precio").value),
       stock_minimo: Number($("p-min").value), dias_reposicion: Number($("p-dias").value),
@@ -1476,7 +1475,7 @@
     // "Acción" solo se envía si la usas (o si el producto ya la tenía): así todo funciona aunque falte el SQL nuevo
     const accionTxt = v("p-accion");
     if (accionTxt || productosTodos.some((p) => "accion" in p)) datos.accion = accionTxt;
-    // El "nombre" se arma solo con tipo, marca, modelo, tamaño y color (lo usan los reportes y las ventas)
+    // El "nombre" se arma solo con tipo, marca, acción, tamaño y color (lo usan los reportes y las ventas)
     datos.nombre = armarNombre(datos);
     for (const [k, t] of [["costo", "El costo"], ["precio", "El precio de venta"]]) {
       if (datos[k] === null || Number.isNaN(datos[k]) || datos[k] < 0) {
@@ -1541,10 +1540,10 @@
     });
     return xlsxPromesa;
   }
-  const COLS_IMPORT = [["sku", "Código"], ["modelo", "Modelo"], ["accion", "Acción"], ["marca", "Marca"], ["tipo", "Tipo"], ["peso", "Peso"], ["tamano", "Tamaño"],
+  const COLS_IMPORT = [["sku", "Código"], ["accion", "Acción"], ["marca", "Marca"], ["tipo", "Tipo"], ["peso", "Peso"], ["tamano", "Tamaño"],
     ["color", "Color"], ["costo", "Costo ($)"], ["precio", "Precio de venta ($)"], ["stock", "Stock"], ["stock_minimo", "Stock mínimo"],
     ["dias_reposicion", "Días de reposición"]];
-  const ALIAS = { codigo: "sku", sku: "sku", cod: "sku", referencia: "sku", modelo: "modelo", accion: "accion", marca: "marca", tipo: "tipo", categoria: "tipo",
+  const ALIAS = { codigo: "sku", sku: "sku", cod: "sku", referencia: "sku", accion: "accion", marca: "marca", tipo: "tipo", categoria: "tipo",
     peso: "peso", tamano: "tamano", talla: "tamano", medida: "tamano", color: "color", costo: "costo", costousd: "costo", preciocosto: "costo",
     precio: "precio", preciodeventa: "precio", precioventa: "precio", pvp: "precio", stock: "stock", existencia: "stock", cantidad: "stock",
     inventario: "stock", stockminimo: "stock_minimo", stockmin: "stock_minimo", minimo: "stock_minimo", diasdereposicion: "dias_reposicion",
@@ -1603,7 +1602,7 @@
       Object.entries(mapa).forEach(([h, f]) => { d[f] = r[h]; });
       if (Object.values(d).every((x) => String(x ?? "").trim() === "")) return;   // fila vacía
       const err = [], dado = {};
-      const o = { sku: txt(d.sku), modelo: txt(d.modelo), accion: txt(d.accion), marca: txt(d.marca), tipo: txt(d.tipo), peso: txt(d.peso), tamano: txt(d.tamano), color: txt(d.color) };
+      const o = { sku: txt(d.sku), accion: txt(d.accion), marca: txt(d.marca), tipo: txt(d.tipo), peso: txt(d.peso), tamano: txt(d.tamano), color: txt(d.color) };
       if (!o.sku) err.push("falta el código");
       const dinero_ = (v, nombre) => { const n = numero(v); if (n === null) { err.push("falta " + nombre); return 0; } if (isNaN(n) || n < 0) { err.push(nombre + " no es válido"); return 0; } return n; };
       o.costo = dinero_(d.costo, "el costo"); o.precio = dinero_(d.precio, "el precio");
@@ -1689,7 +1688,7 @@
     const payNuevo = (f) => { const o = { ...f.d, nombre: armarNombre(f.d) }; if (!o.accion) delete o.accion; return o; };
     const payUpd = (f) => {
       const ex = f.existente, m = {};
-      ["modelo", "marca", "tipo", "peso", "tamano", "color"].forEach((k) => { m[k] = f.d[k] ?? ex[k] ?? null; });
+      ["marca", "tipo", "peso", "tamano", "color"].forEach((k) => { m[k] = f.d[k] ?? ex[k] ?? null; });
       if (f.d.accion || ex.accion) m.accion = f.d.accion ?? ex.accion ?? null;
       const p = { ...m, costo: f.d.costo, precio: f.d.precio, activo: true, nombre: armarNombre({ ...m, sku: ex.sku }) };
       if (f.dado.stock_minimo) p.stock_minimo = f.d.stock_minimo;
