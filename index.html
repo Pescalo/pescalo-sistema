@@ -339,6 +339,38 @@
   .stk-min { color: var(--tenue); font-size: 13px; margin-left: 4px; white-space: nowrap; }
   .var-acc { margin-left: auto; white-space: nowrap; }
   .g-pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 18px; border-top: 1px solid var(--linea); color: var(--tenue); font-size: 14px; background: var(--campo); }
+  /* Galería de productos */
+  .galeria { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; }
+  @media (min-width: 640px) { .galeria { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; padding: 14px 18px 18px; } }
+  button.tarjeta { display: block; width: 100%; padding: 0; text-align: left; background: var(--campo); color: var(--tinta);
+                   border: 1px solid var(--linea); border-radius: 14px; overflow: hidden; min-height: 0; }
+  button.tarjeta:focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; }
+  button.tarjeta.inactivo { opacity: .55; }
+  .t-foto { position: relative; aspect-ratio: 1 / 1; background: var(--campo); display: flex; align-items: center; justify-content: center; }
+  .t-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .t-foto .sin { color: var(--tenue); font-size: 13px; }
+  .t-stock { position: absolute; left: 8px; bottom: 8px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 650; white-space: nowrap; }
+  .t-stock.ok { background: var(--ok-suave); color: var(--ok); }
+  .t-stock.bajo { background: var(--amarillo); color: var(--marino); }
+  .t-stock.cero { background: var(--alerta); color: #fff; }
+  .t-info { display: grid; gap: 2px; padding: 10px 12px 12px; }
+  .t-info b { font-size: 16px; }
+  .t-info span { color: var(--tenue); font-size: 14px; }
+  .t-info .t-precio { color: var(--tinta); font-weight: 650; font-size: 16px; }
+  #hoja-velo { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(4,7,18,.75); z-index: 50; }
+  #hoja { position: fixed; z-index: 51; left: 0; right: 0; bottom: 0; max-height: 92vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+          background: var(--papel); border-top: 3px solid var(--naranja); border-radius: 18px 18px 0 0;
+          padding: 0 18px calc(20px + env(safe-area-inset-bottom)); max-width: 640px; margin: 0 auto; }
+  .hoja-cab { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 10px; background: inherit; }
+  .hoja-cab b { font-size: 18px; }
+  #hoja .h-foto { width: 100%; max-height: 340px; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 14px; border: 1px solid var(--linea); display: block; margin: 4px auto 14px; }
+  #hoja .h-sinfoto { width: 100%; height: 140px; border-radius: 14px; border: 1px dashed var(--linea); display: flex; align-items: center; justify-content: center; color: var(--tenue); margin-bottom: 14px; }
+  #hoja .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin: 0 0 16px; }
+  #hoja .datos div { display: grid; gap: 1px; }
+  #hoja .datos small { color: var(--tenue); font-size: 13px; }
+  #hoja .datos b { font-weight: 600; }
+  #hoja .h-stock { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  #hoja .h-acc { display: flex; gap: 10px; flex-wrap: wrap; }
   .nota-campo { display: block; margin-top: 4px; color: var(--tenue); font-size: 13px; }
   .chip.urg { background: var(--alerta-suave); color: var(--alerta); }
 
@@ -818,6 +850,12 @@
 
     <div id="tip" role="tooltip" hidden></div>
 
+    <div id="hoja-velo" hidden></div>
+    <div id="hoja" role="dialog" aria-modal="true" aria-labelledby="hoja-titulo" hidden>
+      <div class="hoja-cab"><b id="hoja-titulo">Producto</b><button type="button" class="sec mini" id="hoja-cerrar">Cerrar</button></div>
+      <div id="hoja-cuerpo"></div>
+    </div>
+
     <!-- ============ PRODUCTOS ============ -->
     <section id="vista-productos" hidden>
       <div class="caja">
@@ -889,10 +927,14 @@
           <div>
             <label for="p-vista">Ver como</label>
             <select id="p-vista">
+              <option value="galeria">Galería (fotos)</option>
               <option value="lista">Lista</option>
               <option value="modelo">Agrupada por señuelo (colores juntos)</option>
             </select>
           </div>
+          <div><label for="p-f-tipo">Tipo</label><select id="p-f-tipo"><option value="">Todos</option></select></div>
+          <div><label for="p-f-accion">Acción</label><select id="p-f-accion"><option value="">Todas</option></select></div>
+          <label class="check"><input id="p-f-bajo" type="checkbox"> Solo poco stock o agotados</label>
           <label class="check"><input id="p-inactivos" type="checkbox"> Mostrar desactivados</label>
           <div class="aviso" id="p-contador" role="status"></div>
         </div>
@@ -1119,6 +1161,7 @@
     $("r-gan").textContent = dinero(vVenta - vCosto);
     $("r-gan-t").textContent = "ganancia estimada ($)" + (vVenta > 0 ? " · " + Math.round(100 * (vVenta - vCosto) / vVenta) + "% del precio" : "");
     await cargarFotos();
+    llenarFiltros();
     renderProductos();
     llenarSelect();
     normalizarCarrito();
@@ -1202,7 +1245,9 @@
     const cont = $("lista-productos");
     const q = sinAc($("p-buscar").value.trim());
     const verOff = $("p-inactivos").checked;
+    const ft = $("p-f-tipo").value, fa = $("p-f-accion").value, fb = $("p-f-bajo").checked;
     const lista = productosTodos.filter((p) => (verOff || p.activo !== false) &&
+      (!ft || p.tipo === ft) && (!fa || p.accion === fa) && (!fb || (p.activo !== false && p.stock <= p.stock_minimo)) &&
       (!q || q.split(/\s+/).every((w) => sinAc([p.sku, p.nombre, p.marca, p.tipo, p.accion, p.color, p.tamano, p.peso].join(" ")).includes(w))));
     $("p-contador").textContent = lista.length + (lista.length === 1 ? " producto" : " productos");
     if (!productosTodos.length) {
@@ -1210,8 +1255,76 @@
       return;
     }
     if (!lista.length) { cont.innerHTML = `<div class="vacio">Ningún producto coincide con la búsqueda.</div>`; return; }
-    cont.innerHTML = $("p-vista").value === "modelo" ? htmlAgrupado(lista, !!q) : htmlTabla(lista);
+    const vista = $("p-vista").value;
+    cont.innerHTML = vista === "modelo" ? htmlAgrupado(lista, !!q) : vista === "galeria" ? htmlGaleria(lista) : htmlTabla(lista);
+    if (fichaAbierta) pintarFicha();
   }
+
+  // ---------- Galería de tarjetas ----------
+  const claseStock = (p) => (p.stock < 1 ? "cero" : p.stock <= p.stock_minimo ? "bajo" : "ok");
+  const textoStock = (p) => (p.stock < 1 ? "Agotado" : p.stock <= p.stock_minimo ? "Poco: " + p.stock : p.stock + " en stock");
+  function htmlGaleria(lista) {
+    return `<div class="galeria">` + lista.map((p) => {
+      const fu = urlFoto(p);
+      const sub = [p.color, p.tamano].filter(Boolean).join(" · ") || [p.tipo, p.accion].filter(Boolean).join(" · ");
+      return `<button type="button" class="tarjeta${p.activo === false ? " inactivo" : ""}" data-ficha="${p.id}" aria-label="${esc(p.sku + " " + sub)}">
+        <div class="t-foto">${fu ? `<img src="${esc(fu)}" alt="" loading="lazy">` : `<span class="sin">Sin foto</span>`}
+          ${p.activo === false ? "" : `<span class="t-stock ${claseStock(p)}">${esc(textoStock(p))}</span>`}</div>
+        <div class="t-info"><b>${esc(p.sku)}</b><span>${esc(sub || p.nombre)}</span><span class="t-precio">${usd(p.precio)}</span></div>
+      </button>`;
+    }).join("") + `</div>`;
+  }
+
+  // ---------- Ficha de detalle (se abre al tocar una tarjeta) ----------
+  let fichaAbierta = null, fichaFoco = null;
+  function pintarFicha() {
+    const p = prodTodos(fichaAbierta);
+    if (!p) { cerrarFicha(); return; }
+    const fu = urlFoto(p);
+    const dato = (t, v) => (v === null || v === undefined || v === "" ? "" : `<div><small>${t}</small><b>${esc(v)}</b></div>`);
+    $("hoja-titulo").textContent = p.sku + (p.activo === false ? " (desactivado)" : "");
+    $("hoja-cuerpo").innerHTML =
+      (fu ? `<img class="h-foto" src="${esc(fu)}" alt="Foto de ${esc(p.nombre)}">` : `<div class="h-sinfoto">Sin foto</div>`) +
+      `<p style="margin:0 0 12px"><b>${esc(p.nombre)}</b></p>` +
+      `<div class="datos">` + dato("Tipo", p.tipo) + dato("Acción", p.accion) + dato("Marca", p.marca) + dato("Color", p.color) +
+        dato("Tamaño", p.tamano) + dato("Peso", p.peso) + dato("Costo", usd(p.costo)) + dato("Precio de venta", usd(p.precio)) +
+        dato("Margen", margenTxt(p)) + dato("Stock mínimo", p.stock_minimo) + dato("Días de reposición", p.dias_reposicion) + `</div>` +
+      (p.activo === false ? "" : `<div class="h-stock"><b>Stock</b><div class="stk"><button type="button" class="sec" data-stk="-1" data-id="${p.id}" aria-label="Quitar una unidad">−</button>
+        <input type="text" inputmode="numeric" autocomplete="off" data-stk-in="${p.id}" value="${p.stock}" aria-label="Stock">
+        <button type="button" class="sec" data-stk="1" data-id="${p.id}" aria-label="Sumar una unidad">+</button></div>
+        <span class="t-stock ${claseStock(p)}" style="position:static">${esc(textoStock(p))}</span></div>`) +
+      `<div class="h-acc"><button type="button" data-editar="${p.id}">Editar</button><button type="button" class="sec" data-duplicar="${p.id}">Duplicar (otro color)</button></div>`;
+  }
+  function abrirFicha(id) {
+    fichaFoco = document.activeElement; fichaAbierta = id; pintarFicha();
+    $("hoja").hidden = false; $("hoja-velo").hidden = false; document.body.style.overflow = "hidden";
+    $("hoja").scrollTop = 0; $("hoja-cerrar").focus();
+  }
+  function cerrarFicha() {
+    fichaAbierta = null; $("hoja").hidden = true; $("hoja-velo").hidden = true; document.body.style.overflow = "";
+    if (fichaFoco && fichaFoco.focus && document.contains(fichaFoco)) fichaFoco.focus({ preventScroll: true });
+  }
+  $("hoja-cerrar").addEventListener("click", cerrarFicha);
+  $("hoja-velo").addEventListener("click", cerrarFicha);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && fichaAbierta) cerrarFicha(); });
+  $("lista-productos").addEventListener("click", (e) => {
+    const t = e.target.closest("button[data-ficha]");
+    if (t) abrirFicha(Number(t.dataset.ficha));
+  });
+
+  // Filtros: las listas se arman con lo que hay cargado
+  function llenarFiltros() {
+    const llenar = (id, campo, todos) => {
+      const sel = $(id), actual = sel.value;
+      const vals = [...new Set(productosTodos.map((p) => String(p[campo] ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+      sel.innerHTML = `<option value="">${todos}</option>` + vals.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+      sel.value = vals.includes(actual) ? actual : "";
+    };
+    llenar("p-f-tipo", "tipo", "Todos"); llenar("p-f-accion", "accion", "Todas");
+  }
+  ["p-f-tipo", "p-f-accion", "p-f-bajo"].forEach((id) => $(id).addEventListener("change", renderProductos));
+  try { const v = localStorage.getItem("inventario_vista"); if (v && [...$("p-vista").options].some((o) => o.value === v)) $("p-vista").value = v; } catch (e) { /* sin almacenamiento */ }
+  $("p-vista").addEventListener("change", () => { try { localStorage.setItem("inventario_vista", $("p-vista").value); } catch (e) { /* sin almacenamiento */ } });
   ["input", "change"].forEach((ev) => {
     $("p-buscar").addEventListener(ev, renderProductos);
     $("p-vista").addEventListener(ev, renderProductos);
@@ -1253,20 +1366,20 @@
     gMsg(`${p.nombre}: stock ${orig} → ${nuevo}.`);
     await cargarTodo();
   }
-  $("lista-productos").addEventListener("click", (e) => {
+  [$("lista-productos"), $("hoja")].forEach((c) => c.addEventListener("click", (e) => {
     const b = e.target.closest("button[data-stk]");
     if (!b) return;
     const p = prodTodos(Number(b.dataset.id));
     if (p) stkProgramar(p.id, p.stock + Number(b.dataset.stk));
-  });
-  $("lista-productos").addEventListener("change", (e) => {
+  }));
+  [$("lista-productos"), $("hoja")].forEach((c) => c.addEventListener("change", (e) => {
     const i = e.target.closest("input[data-stk-in]");
     if (!i) return;
     const p = prodTodos(Number(i.dataset.stkIn)), n = numero(i.value);
     if (!p) return;
     if (n === null || Number.isNaN(n) || n < 0 || !Number.isInteger(n)) { gMsg("El stock debe ser un número entero (0 o más).", true); renderProductos(); return; }
     stkProgramar(p.id, n);
-  });
+  }));
 
   async function cargarReposicion() {
     const { data, error } = await sb.from("v_reposicion").select("*").order("nombre");
@@ -1339,11 +1452,12 @@
     $("p-min").value = p.stock_minimo; $("p-dias").value = p.dias_reposicion;
   }
 
-  $("lista-productos").addEventListener("click", (e) => {
+  [$("lista-productos"), $("hoja")].forEach((c) => c.addEventListener("click", (e) => {
     const b = e.target.closest("button[data-editar], button[data-duplicar]");
     if (!b) return;
     const p = prodTodos(Number(b.dataset.editar || b.dataset.duplicar));
     if (!p) return;
+    if (fichaAbierta) cerrarFicha();
     limpiarForm();
     llenarForm(p);
     if (b.dataset.editar) {
@@ -1370,7 +1484,7 @@
     }
     $("f-prod").scrollIntoView({ behavior: "smooth" });
     setTimeout(() => $(b.dataset.duplicar ? "p-sku" : "p-precio").focus({ preventScroll: true }), 350);
-  });
+  }));
 
   $("p-foto").addEventListener("change", async () => {
     const f = $("p-foto").files[0];
